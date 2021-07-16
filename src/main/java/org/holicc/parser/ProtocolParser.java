@@ -1,7 +1,9 @@
 package org.holicc.parser;
 
+import org.holicc.server.Command;
+
 public interface ProtocolParser {
 
-    <T> RedisValueType<T> parse(byte[] data,int pos) throws ProtocolParseException;
+    Command parse(byte[] data, int pos) throws ProtocolParseException;
 
 }

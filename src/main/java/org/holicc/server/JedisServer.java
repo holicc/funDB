@@ -1,10 +1,10 @@
 package org.holicc.server;
 
+import org.holicc.db.DBException;
 import org.holicc.db.DataBase;
 import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParseException;
 import org.holicc.parser.ProtocolParser;
-import org.holicc.parser.RedisValueType;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -13,7 +13,6 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.nio.charset.StandardCharsets;
 
 public class JedisServer {
     private String host;
@@ -63,16 +62,16 @@ public class JedisServer {
                 BufferedInputStream reader = new BufferedInputStream(accept.getInputStream());
                 int size = reader.available();
                 byte[] data = reader.readNBytes(size);
-                try {
-                    RedisValueType<Object> result = parser.parse(data, 0);
-
+                try (OutputStream out = accept.getOutputStream()) {
+                    Command cmd = parser.parse(data, 0);
+                    Response resp = db.execute(cmd);
+                    resp.write(out);
                 } catch (ProtocolParseException e) {
                     reader.close();
                     accept.close();
+                } catch (DBException e) {
+                    e.printStackTrace();
                 }
-                //todo
-                OutputStream out = accept.getOutputStream();
-                out.write("test".getBytes(StandardCharsets.UTF_8));
             }
         } catch (IOException e) {
             e.printStackTrace();
