@@ -1,6 +1,10 @@
 package org.holicc.server;
 
 import org.holicc.db.DataBase;
+import org.holicc.parser.DefaultProtocolParser;
+import org.holicc.parser.ProtocolParseException;
+import org.holicc.parser.ProtocolParser;
+import org.holicc.parser.RedisValueType;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -14,7 +18,9 @@ import java.nio.charset.StandardCharsets;
 public class JedisServer {
     private String host;
     private int port;
+
     private DataBase db;
+    private ProtocolParser parser = new DefaultProtocolParser();
 
     private static final JedisServer server = new JedisServer();
 
@@ -41,11 +47,6 @@ public class JedisServer {
         return server;
     }
 
-    public static JedisServer database(DataBase db) {
-        server.db = db;
-        return server;
-    }
-
 
     public void run(String host, int port) throws IOException {
         this.host = host;
@@ -62,8 +63,14 @@ public class JedisServer {
                 BufferedInputStream reader = new BufferedInputStream(accept.getInputStream());
                 int size = reader.available();
                 byte[] data = reader.readNBytes(size);
-                System.out.println(new String(data));
+                try {
+                    RedisValueType<Object> result = parser.parse(data, 0);
 
+                } catch (ProtocolParseException e) {
+                    reader.close();
+                    accept.close();
+                }
+                //todo
                 OutputStream out = accept.getOutputStream();
                 out.write("test".getBytes(StandardCharsets.UTF_8));
             }
