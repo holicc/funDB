@@ -1,5 +1,6 @@
 package org.holicc.parser;
 
+import java.util.List;
 import java.util.Objects;
 
 public class RedisValue<T> {
@@ -27,6 +28,18 @@ public class RedisValue<T> {
     public T getValue() {
         return Objects.nonNull(value) ? value : null;
     }
+
+
+    public String getCommand() {
+        if (value instanceof byte[]) {
+            return new String((byte[]) value);
+        }
+        if (value instanceof List) {
+            return ((List<RedisValue>) value).get(0).getCommand();
+        }
+        return value.toString();
+    }
+
 
     @Override
     public String toString() {

@@ -8,5 +8,5 @@ import java.util.List;
 
 public interface JedisCommand {
 
-    Response execute(DataBase db);
+    Response execute(DataBase db, RedisValue args);
 }

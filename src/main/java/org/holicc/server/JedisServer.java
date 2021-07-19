@@ -1,7 +1,7 @@
 package org.holicc.server;
 
 import org.holicc.cmd.CommandScanner;
-import org.holicc.cmd.annotation.Command;
+import org.holicc.cmd.JedisCommand;
 import org.holicc.db.DataBase;
 import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParseException;
@@ -16,16 +16,18 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 public class JedisServer {
     private String host;
     private int port;
 
     private DataBase db;
-    private CommandScanner scanner=new CommandScanner();
-    private ProtocolParser parser = new DefaultProtocolParser();
 
+    private CommandScanner scanner = new CommandScanner();
+    private ProtocolParser parser = new DefaultProtocolParser();
     private static final JedisServer server = new JedisServer();
 
     private static final String BANNER = """
@@ -52,8 +54,8 @@ public class JedisServer {
     }
 
 
-    public void run(String host, int port) throws IOException {
-        HashMap<String, Command> cmdMap = scanner.scan();
+    public void run(String host, int port) throws Exception {
+        Map<String, JedisCommand> cmds = scanner.scan();
         //
         this.host = host;
         this.port = port;
@@ -71,8 +73,14 @@ public class JedisServer {
                 byte[] data = reader.readNBytes(size);
                 try (OutputStream out = accept.getOutputStream()) {
                     RedisValue redisValue = parser.parse(data, 0);
-                    System.out.println(redisValue.getValue().toString());
-                    out.write("+OK".getBytes(StandardCharsets.UTF_8));
+                    String command = redisValue.getCommand().toUpperCase(Locale.ROOT);
+                    JedisCommand cmd = cmds.get(command);
+                    if (cmd != null) {
+                        Optional.ofNullable(cmd.execute(db, redisValue)).ifPresent(resp -> resp.write(out));
+                    } else {
+                        out.write("-Error Unknown Command".getBytes(StandardCharsets.UTF_8));
+                    }
+                    out.flush();
                 } catch (ProtocolParseException e) {
                     reader.close();
                     accept.close();

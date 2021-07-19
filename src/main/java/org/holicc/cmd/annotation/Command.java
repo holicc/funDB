@@ -10,8 +10,4 @@ import java.lang.annotation.Target;
 public @interface Command {
 
     String name();
-
-    int minArgSize();
-
-    Class[] allowValueTypes() default Object.class;
 }
