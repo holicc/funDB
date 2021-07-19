@@ -12,11 +12,11 @@ public class ProtocolParseException extends Exception {
 
 
     public static ProtocolParseException BadBulkStringSize(int len) {
-        return new ProtocolParseException("bad bulk string size of " + len);
+        return new ProtocolParseException("bad bulk string minArgSize of " + len);
     }
 
     public static ProtocolParseException BadArraySize(int len) {
-        return new ProtocolParseException("bad array size of " + len);
+        return new ProtocolParseException("bad array minArgSize of " + len);
     }
 
     public static ProtocolParseException NotEnoughDataLength(int actual, int except) {

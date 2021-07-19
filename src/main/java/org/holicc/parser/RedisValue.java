@@ -2,22 +2,22 @@ package org.holicc.parser;
 
 import java.util.Objects;
 
-public class RedisValueType<T> {
+public class RedisValue<T> {
 
     private DefaultProtocolParser.Word word;
 
     private T value;
 
-    private RedisValueType() {
+    private RedisValue() {
     }
 
-    public RedisValueType(DefaultProtocolParser.Word word, T value) {
+    public RedisValue(DefaultProtocolParser.Word word, T value) {
         this.word = word;
         this.value = value;
     }
 
-    public static <T> RedisValueType<T> nullValue() {
-        return new RedisValueType<>();
+    public static <T> RedisValue<T> nullValue() {
+        return new RedisValue<>();
     }
 
     public DefaultProtocolParser.Word getWord() {
@@ -30,7 +30,7 @@ public class RedisValueType<T> {
 
     @Override
     public String toString() {
-        return "RedisValueType{" +
+        return "RedisValue{" +
                 "word=" + word +
                 ", value=" + value +
                 '}';

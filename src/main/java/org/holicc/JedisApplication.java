@@ -7,6 +7,6 @@ import java.io.IOException;
 public class JedisApplication {
     public static void main(String[] args) throws IOException {
         JedisServer.build()
-                .run("127.0.0.1", 7891);
+                .run("192.168.3.3", 7891);
     }
 }

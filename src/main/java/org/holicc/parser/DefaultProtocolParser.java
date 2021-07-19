@@ -7,6 +7,8 @@ import java.util.List;
 public class DefaultProtocolParser implements ProtocolParser {
 
 
+    private String cmdName;
+
     /**
      * words represent data range
      * eg: $3foo\r\n  => Word(2,4)
@@ -23,7 +25,7 @@ public class DefaultProtocolParser implements ProtocolParser {
     }
 
     @Override
-    public RedisValueType parse(byte[] data, int pos) throws ProtocolParseException {
+    public RedisValue parse(byte[] data, int pos) throws ProtocolParseException {
         return switch (data[pos]) {
             case '+' -> strValue(data, pos + 1);
             case ':' -> intValue(data, pos + 1);
@@ -43,59 +45,60 @@ public class DefaultProtocolParser implements ProtocolParser {
         return new Word(pos, index - 1);
     }
 
-    private RedisValueType<String> strValue(byte[] data, int pos) throws ProtocolParseException {
+    private RedisValue<String> strValue(byte[] data, int pos) throws ProtocolParseException {
         Word wd = word(data, pos);
         byte[] s = Arrays.copyOfRange(data, wd.start(), wd.end() + 1);
-        return new RedisValueType<>(wd, new String(s));
+        String strValue = new String(s);
+        return new RedisValue<>(wd, strValue);
     }
 
-    private RedisValueType<RedisError> error(byte[] data, int pos) throws ProtocolParseException {
+    private RedisValue<RedisError> error(byte[] data, int pos) throws ProtocolParseException {
         Word wd = word(data, pos);
         byte[] s = Arrays.copyOfRange(data, wd.start(), wd.end() + 1);
         RedisError error = new RedisError(new String(s));
-        return new RedisValueType<>(wd, error);
+        return new RedisValue<>(wd, error);
     }
 
-    private RedisValueType<byte[]> bulkStrValue(byte[] data, int pos) throws ProtocolParseException {
-        RedisValueType<Integer> intValue = intValue(data, pos);
+    private RedisValue<byte[]> bulkStrValue(byte[] data, int pos) throws ProtocolParseException {
+        RedisValue<Integer> intValue = intValue(data, pos);
         Word wd = intValue.getWord();
         int len = intValue.getValue();
         if (len < -1) {
             throw ProtocolParseException.BadBulkStringSize(len);
         } else if (len == -1) {
-            return RedisValueType.nullValue();
+            return RedisValue.nullValue();
         } else if (len == 0) {
-            return new RedisValueType<>(null, new byte[0]);
+            return new RedisValue<>(null, new byte[0]);
         } else if (data.length - wd.end() - 2 < len + 2) {
             throw ProtocolParseException.NotEnoughDataLength(data.length, len + wd.end() + 2);
         } else {
             int start = wd.nextPosition();
             int end = start + len - 1;
             byte[] s = Arrays.copyOfRange(data, start, end + 1);
-            return new RedisValueType<>(new Word(start, end), s);
+            return new RedisValue<>(new Word(start, end), s);
         }
     }
 
-    private RedisValueType<Integer> intValue(byte[] data, int pos) throws ProtocolParseException {
+    private RedisValue<Integer> intValue(byte[] data, int pos) throws ProtocolParseException {
         Word wd = word(data, pos);
         byte[] s = Arrays.copyOfRange(data, wd.start(), wd.end() + 1);
         int i = Integer.parseInt(new String(s));
-        return new RedisValueType<>(wd, i);
+        return new RedisValue<>(wd, i);
     }
 
-    private RedisValueType<List<RedisValueType>> arrayValue(byte[] data, int pos) throws ProtocolParseException {
-        RedisValueType<Integer> intValue = intValue(data, pos);
+    private RedisValue<List<RedisValue>> arrayValue(byte[] data, int pos) throws ProtocolParseException {
+        RedisValue<Integer> intValue = intValue(data, pos);
         int len = intValue.getValue();
         if (len > 0) {
-            List<RedisValueType> ary = new ArrayList<>(len);
+            List<RedisValue> ary = new ArrayList<>(len);
             // 1(value last pos) + 2 (\r\n) = 3
             int curPos = intValue.getWord().nextPosition();
             for (int i = 0; i < len; i++) {
-                RedisValueType value = parse(data, curPos);
+                RedisValue value = parse(data, curPos);
                 ary.add(value);
                 curPos = value.getWord().nextPosition();
             }
-            return new RedisValueType<>(new Word(pos, curPos), ary);
+            return new RedisValue<>(new Word(pos, curPos), ary);
         }
         throw ProtocolParseException.BadArraySize(len);
     }
