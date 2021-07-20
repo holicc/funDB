@@ -29,6 +29,10 @@ public class RedisValue<T> {
         return Objects.nonNull(value) ? value : null;
     }
 
+    public String getValueAsString() {
+        if (value instanceof byte[]) return new String((byte[]) value);
+        return value.toString();
+    }
 
     public String getCommand() {
         if (value instanceof byte[]) {

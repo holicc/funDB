@@ -48,6 +48,21 @@ public class JedisServer {
 
     }
 
+    public static class Builder {
+
+        private DataBase db;
+
+        public Builder database(DataBase db) {
+            this.db = db;
+            return this;
+        }
+
+        public JedisServer build() {
+            JedisServer server = new JedisServer();
+            server.db = db;
+            return server;
+        }
+    }
 
     public static JedisServer build() {
         return server;
@@ -76,12 +91,13 @@ public class JedisServer {
                     String command = redisValue.getCommand().toUpperCase(Locale.ROOT);
                     JedisCommand cmd = cmds.get(command);
                     if (cmd != null) {
-                        Optional.ofNullable(cmd.execute(db, redisValue)).ifPresent(resp -> resp.write(out));
+                        cmd.execute(db, redisValue).write(out);
                     } else {
                         out.write("-Error Unknown Command".getBytes(StandardCharsets.UTF_8));
                     }
                     out.flush();
                 } catch (ProtocolParseException e) {
+                    e.printStackTrace();
                     reader.close();
                     accept.close();
                 }

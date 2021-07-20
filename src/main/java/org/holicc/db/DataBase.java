@@ -3,8 +3,11 @@ package org.holicc.db;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * https://redis.io/commands/set
+ */
 public interface DataBase {
 
-    Map<String, String> getGlobalSet();
+    void persistInMemory(DataEntry entry);
 
 }

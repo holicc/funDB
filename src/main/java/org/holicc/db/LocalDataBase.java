@@ -1,18 +1,21 @@
 package org.holicc.db;
 
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 public class LocalDataBase implements DataBase {
 
-    private Map<String, String> map = new ConcurrentHashMap<>();
+    private Map<String, Object> set = new ConcurrentHashMap<>();
+
+    private Map<String, Long> ttlMap = new ConcurrentHashMap<>();
+
 
     @Override
-    public Map<String, String> getGlobalSet() {
-        return map;
+    public void persistInMemory(DataEntry entry) {
+        String key = entry.getKey();
+        long ttl = entry.getTtl();
+        if (ttl > 0) ttlMap.put(key, entry.getTtl());
+        //
+        set.put(key, entry.getValue());
     }
-
 }
