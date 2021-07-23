@@ -8,6 +8,7 @@ public class Response {
 
     private String msg;
 
+
     public Response(String msg) {
         this.msg = msg;
     }
@@ -16,8 +17,16 @@ public class Response {
         return null;
     }
 
+    public static Response BulkStringReply(String data) {
+        return new Response("$" + data.length() + "\r\n" + data + "\r\n");
+    }
+
     public static Response Ok() {
         return new Response("+OK\r\n");
+    }
+
+    public static Response Error(String msg) {
+        return new Response("-ERR " + msg + "\r\n");
     }
 
     public void write(OutputStream outputStream) throws IOException {
