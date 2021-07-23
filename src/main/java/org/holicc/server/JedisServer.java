@@ -72,15 +72,20 @@ public class JedisServer {
         System.out.println(BANNER);
         InetSocketAddress address = new InetSocketAddress(host, port);
         ServerSocket socket = new ServerSocket();
+        socket.setReuseAddress(true);
         socket.bind(address);
+        int i = 0;
         Logger.info("server start at: {}:{} ...", this.host, this.port);
         try {
             Socket accept;
             while ((accept = socket.accept()) != null) {
+                i++;
+                System.out.println(i);
                 BufferedInputStream reader = new BufferedInputStream(accept.getInputStream());
                 int size = reader.available();
                 if (size > 0) {
                     byte[] data = reader.readNBytes(size);
+                    System.out.println(new String(data));
                     try (OutputStream out = accept.getOutputStream()) {
                         RedisValue redisValue = parser.parse(data, 0);
                         String command = redisValue.getCommand().toUpperCase(Locale.ROOT);

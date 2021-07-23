@@ -1,5 +1,7 @@
 package org.holicc.server;
 
+import org.tinylog.Logger;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
