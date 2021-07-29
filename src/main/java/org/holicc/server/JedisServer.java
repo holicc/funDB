@@ -3,7 +3,9 @@ package org.holicc.server;
 import org.holicc.cmd.JedisCommand;
 import org.holicc.db.DataBase;
 import org.holicc.parser.DefaultProtocolParser;
+import org.holicc.parser.ProtocolParseException;
 import org.holicc.parser.ProtocolParser;
+import org.holicc.parser.RedisValue;
 import org.tinylog.Logger;
 
 import java.io.IOException;
@@ -13,8 +15,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -66,7 +68,6 @@ public class JedisServer {
 
 
     public void run(String host, int port) throws Exception {
-        registerCmd();
         this.host = host;
         this.port = port;
         System.out.println(BANNER);
@@ -78,15 +79,20 @@ public class JedisServer {
         channel.configureBlocking(false);
         channel.register(selector, channel.validOps());
         channel.bind(address);
+        //
+        registerCmd();
+        //
         Logger.info("server start at: {}:{} ...", this.host, this.port);
         while (selector.isOpen()) {
             int selected = selector.select(key -> {
                 try {
                     if (key.isAcceptable()) {
                         register(selector, channel);
-                    } else if (key.isReadable()) {
+                    }
+                    if (key.isReadable()) {
                         onRead(key);
-                    } else if (key.isWritable()) {
+                    }
+                    if (key.isWritable()) {
                         onWrite(key);
                     }
                 } catch (Exception e) {
@@ -101,31 +107,46 @@ public class JedisServer {
     private void register(Selector selector, ServerSocketChannel serverSocketChannel) throws IOException {
         SocketChannel client = serverSocketChannel.accept();
         client.configureBlocking(false);
-        client.register(selector, SelectionKey.OP_READ);
+        client.register(selector, client.validOps());
     }
 
-    private void onRead(SelectionKey key) throws IOException {
+    private void onRead(SelectionKey key) throws IOException, ProtocolParseException {
         SocketChannel channel = (SocketChannel) key.channel();
         ByteBuffer buffer = ByteBuffer.allocate(512);
         int size = channel.read(buffer);
         // peer socket closed
         if (size == -1) {
-            channel.close();
+            throw new IOException("peer socket closed");
         }
         if (size > 0) {
             //
             byte[] array = buffer.array();
-            Logger.debug("data {} ", new String(array));
+            RedisValue parse = parser.parse(array, 0);
+            String command = parse.getCommand();
+            JedisCommand cmd = cmds.get(command.toUpperCase(Locale.ROOT));
+            Response response = Response.Error("unknown command " + command);
+            if (cmd != null) {
+                response = cmd.execute(db, parse);
+                if (response != null) {
+                    key.attach(response);
+                }
+            } else {
+                key.attach(response);
+            }
             //
-            channel.register(key.selector(), SelectionKey.OP_WRITE);
         }
+        key.interestOps(SelectionKey.OP_WRITE);
     }
 
     private void onWrite(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
-        ByteBuffer wrap = ByteBuffer.wrap("+OK\r\n".getBytes(StandardCharsets.UTF_8));
-        channel.write(wrap);
-        channel.register(key.selector(), SelectionKey.OP_READ);
+        Object attachment = key.attachment();
+        if (attachment != null) {
+            Response resp = (Response) key.attachment();
+            ByteBuffer wrap = ByteBuffer.wrap(resp.toBytes());
+            channel.write(wrap);
+        }
+        key.interestOps(SelectionKey.OP_READ);
     }
 
     private void registerCmd() {
