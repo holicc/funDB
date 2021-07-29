@@ -31,7 +31,7 @@ public class Response {
         return new Response("-ERR " + msg + "\r\n");
     }
 
-    public void write(OutputStream outputStream) throws IOException {
-        outputStream.write(msg.getBytes(StandardCharsets.UTF_8));
+    public byte[] toBytes() {
+        return msg.getBytes(StandardCharsets.UTF_8);
     }
 }

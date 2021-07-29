@@ -4,17 +4,17 @@ import org.holicc.cmd.JedisCommand;
 import org.holicc.db.DataBase;
 import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParser;
-import org.holicc.parser.RedisValue;
 import org.tinylog.Logger;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -70,42 +70,62 @@ public class JedisServer {
         this.host = host;
         this.port = port;
         System.out.println(BANNER);
+        //
+        Selector selector = Selector.open();
+        //
         InetSocketAddress address = new InetSocketAddress(host, port);
-        ServerSocket socket = new ServerSocket();
-        socket.setReuseAddress(true);
-        socket.bind(address);
-        int i = 0;
+        ServerSocketChannel channel = ServerSocketChannel.open();
+        channel.configureBlocking(false);
+        channel.register(selector, channel.validOps());
+        channel.bind(address);
         Logger.info("server start at: {}:{} ...", this.host, this.port);
-        try {
-            Socket accept;
-            while ((accept = socket.accept()) != null) {
-                i++;
-                System.out.println(i);
-                BufferedInputStream reader = new BufferedInputStream(accept.getInputStream());
-                int size = reader.available();
-                if (size > 0) {
-                    byte[] data = reader.readNBytes(size);
-                    System.out.println(new String(data));
-                    try (OutputStream out = accept.getOutputStream()) {
-                        RedisValue redisValue = parser.parse(data, 0);
-                        String command = redisValue.getCommand().toUpperCase(Locale.ROOT);
-                        JedisCommand cmd = cmds.get(command);
-                        if (cmd != null) {
-                            cmd.execute(db, redisValue).write(out);
-                        } else {
-                            Response.Error("unknown command").write(out);
-                        }
-                    } catch (Exception e) {
-                        Logger.error(e);
-                        reader.close();
-                        accept.close();
+        while (selector.isOpen()) {
+            int selected = selector.select(key -> {
+                try {
+                    if (key.isAcceptable()) {
+                        register(selector, channel);
+                    } else if (key.isReadable()) {
+                        onRead(key);
+                    } else if (key.isWritable()) {
+                        onWrite(key);
                     }
+                } catch (Exception e) {
+                    key.cancel();
+                    Logger.error(e);
                 }
-            }
-        } catch (IOException e) {
-            Logger.error(e);
-            socket.close();
+            }, 3 * 1000L);
         }
+    }
+
+
+    private void register(Selector selector, ServerSocketChannel serverSocketChannel) throws IOException {
+        SocketChannel client = serverSocketChannel.accept();
+        client.configureBlocking(false);
+        client.register(selector, SelectionKey.OP_READ);
+    }
+
+    private void onRead(SelectionKey key) throws IOException {
+        SocketChannel channel = (SocketChannel) key.channel();
+        ByteBuffer buffer = ByteBuffer.allocate(512);
+        int size = channel.read(buffer);
+        // peer socket closed
+        if (size == -1) {
+            channel.close();
+        }
+        if (size > 0) {
+            //
+            byte[] array = buffer.array();
+            Logger.debug("data {} ", new String(array));
+            //
+            channel.register(key.selector(), SelectionKey.OP_WRITE);
+        }
+    }
+
+    private void onWrite(SelectionKey key) throws IOException {
+        SocketChannel channel = (SocketChannel) key.channel();
+        ByteBuffer wrap = ByteBuffer.wrap("+OK\r\n".getBytes(StandardCharsets.UTF_8));
+        channel.write(wrap);
+        channel.register(key.selector(), SelectionKey.OP_READ);
     }
 
     private void registerCmd() {
