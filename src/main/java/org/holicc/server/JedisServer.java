@@ -6,7 +6,6 @@ import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParseException;
 import org.holicc.parser.ProtocolParser;
 import org.holicc.parser.RedisValue;
-import org.reflections.ReflectionUtils;
 import org.reflections.Reflections;
 import org.tinylog.Logger;
 
@@ -20,6 +19,7 @@ import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class JedisServer {
@@ -152,7 +152,10 @@ public class JedisServer {
 
     private void registerCmd() {
 
-        Reflections reflections=new Reflections("org.holicc.cmd");
+        Reflections reflections = new Reflections("org.holicc.cmd");
+        Set<Class<? extends JedisCommand>> subTypesOf = reflections.getSubTypesOf(JedisCommand.class);
+        // TODO use proxy class
+
 
 
         Stream.of(
