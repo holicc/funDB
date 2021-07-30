@@ -6,6 +6,8 @@ import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParseException;
 import org.holicc.parser.ProtocolParser;
 import org.holicc.parser.RedisValue;
+import org.reflections.ReflectionUtils;
+import org.reflections.Reflections;
 import org.tinylog.Logger;
 
 import java.io.IOException;
@@ -32,19 +34,17 @@ public class JedisServer {
     private ProtocolParser parser = new DefaultProtocolParser();
     private static final JedisServer server = new JedisServer();
 
-    private static final String BANNER = """
-                
-             ▄▄▄██▀▀▀▓█████ ▓█████▄  ██▓  ██████
-               ▒██   ▓█   ▀ ▒██▀ ██▌▓██▒▒██    ▒
-               ░██   ▒███   ░██   █▌▒██▒░ ▓██▄
-            ▓██▄██▓  ▒▓█  ▄ ░▓█▄   ▌░██░  ▒   ██▒
-             ▓███▒   ░▒████▒░▒████▓ ░██░▒██████▒▒
-             ▒▓▒▒░   ░░ ▒░ ░ ▒▒▓  ▒ ░▓  ▒ ▒▓▒ ▒ ░
-             ▒ ░▒░    ░ ░  ░ ░ ▒  ▒  ▒ ░░ ░▒  ░ ░
-             ░ ░ ░      ░    ░ ░  ░  ▒ ░░  ░  ░
-             ░   ░      ░  ░   ░     ░        ░
-                             ░
-            """;
+    private static final String BANNER = "    \n" +
+            "             ▄▄▄██▀▀▀▓█████ ▓█████▄  ██▓  ██████\n" +
+            "               ▒██   ▓█   ▀ ▒██▀ ██▌▓██▒▒██    ▒\n" +
+            "               ░██   ▒███   ░██   █▌▒██▒░ ▓██▄\n" +
+            "            ▓██▄██▓  ▒▓█  ▄ ░▓█▄   ▌░██░  ▒   ██▒\n" +
+            "             ▓███▒   ░▒████▒░▒████▓ ░██░▒██████▒▒\n" +
+            "             ▒▓▒▒░   ░░ ▒░ ░ ▒▒▓  ▒ ░▓  ▒ ▒▓▒ ▒ ░\n" +
+            "             ▒ ░▒░    ░ ░  ░ ░ ▒  ▒  ▒ ░░ ░▒  ░ ░\n" +
+            "             ░ ░ ░      ░    ░ ░  ░  ▒ ░░  ░  ░\n" +
+            "             ░   ░      ░  ░   ░     ░        ░\n" +
+            "                             ░";
 
     private JedisServer() {
 
@@ -121,6 +121,7 @@ public class JedisServer {
         if (size > 0) {
             //
             byte[] array = buffer.array();
+            // TODO parse is slow
             RedisValue parse = parser.parse(array, 0);
             String command = parse.getCommand();
             JedisCommand cmd = cmds.get(command.toUpperCase(Locale.ROOT));
@@ -150,6 +151,10 @@ public class JedisServer {
     }
 
     private void registerCmd() {
+
+        Reflections reflections=new Reflections("org.holicc.cmd");
+
+
         Stream.of(
                 JedisCommand.ALL_COMMAND
         ).forEach(cmd -> {

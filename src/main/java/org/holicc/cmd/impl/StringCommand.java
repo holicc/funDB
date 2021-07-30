@@ -66,6 +66,7 @@ public class StringCommand implements JedisCommand {
 
     private Response getFunction(DataBase db, List<RedisValue> arg) {
         DataEntry entry = db.getEntry(arg.remove(0).getValueAsString());
+        if (entry == null) return Response.NullBulkResponse();
         return Response.BulkStringReply(entry.getValue().toString());
     }
 }
