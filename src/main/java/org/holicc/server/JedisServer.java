@@ -1,11 +1,13 @@
 package org.holicc.server;
 
 import org.holicc.cmd.JedisCommand;
+import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParseException;
 import org.holicc.parser.ProtocolParser;
 import org.holicc.parser.RedisValue;
+import org.reflections.ReflectionUtils;
 import org.reflections.Reflections;
 import org.tinylog.Logger;
 
@@ -153,9 +155,13 @@ public class JedisServer {
     private void registerCmd() {
 
         Reflections reflections = new Reflections("org.holicc.cmd");
-        Set<Class<? extends JedisCommand>> subTypesOf = reflections.getSubTypesOf(JedisCommand.class);
-        // TODO use proxy class
 
+        Set<Class<? extends JedisCommand>> commands = reflections.getSubTypesOf(JedisCommand.class);
+        // TODO use proxy class
+        commands.stream().map(ReflectionUtils::getAllAnnotations)
+                .flatMap(Set::stream)
+                .filter(annotation -> annotation.annotationType().equals(Command.class))
+                .map(annotation -> ((Command) annotation).name())
 
 
         Stream.of(
