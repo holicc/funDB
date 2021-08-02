@@ -1,6 +1,5 @@
 package org.holicc.db;
 
-import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,7 +17,7 @@ public class LocalDataBase implements DataBase {
         if (!entryMap.containsKey(key)) return null;
         DataEntry entry = entryMap.get(key);
         long ttl = entry.getTtl();
-        if (ttl > 0 && ttl > System.currentTimeMillis()) {
+        if (ttl == 0 || ttl > System.currentTimeMillis()) {
             return entry;
         } else {
             DataEntry remove = entryMap.remove(key);

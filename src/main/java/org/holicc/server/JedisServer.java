@@ -12,17 +12,17 @@ import org.reflections.Reflections;
 import org.tinylog.Logger;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
+import java.util.*;
+import java.util.function.Function;
 
 public class JedisServer {
 
@@ -30,8 +30,7 @@ public class JedisServer {
     private int port;
 
     private DataBase db;
-
-    private Map<String, JedisCommand> cmds = new HashMap<>();
+    private Map<String, Function<RedisValue, Response>> cmds;
 
     private ProtocolParser parser = new DefaultProtocolParser();
     private static final JedisServer server = new JedisServer();
@@ -82,7 +81,7 @@ public class JedisServer {
         channel.register(selector, channel.validOps());
         channel.bind(address);
         //
-        registerCmd();
+        cmds = registerCmd();
         //
         Logger.info("server start at: {}:{} ...", this.host, this.port);
         while (selector.isOpen()) {
@@ -99,7 +98,7 @@ public class JedisServer {
                     }
                 } catch (Exception e) {
                     key.cancel();
-                    Logger.error(e);
+                    Logger.error(e.getMessage());
                 }
             }, 3 * 1000L);
         }
@@ -121,22 +120,17 @@ public class JedisServer {
             throw new IOException("peer socket closed");
         }
         if (size > 0) {
-            //
             byte[] array = buffer.array();
             // TODO parse is slow
             RedisValue parse = parser.parse(array, 0);
             String command = parse.getCommand();
-            JedisCommand cmd = cmds.get(command.toUpperCase(Locale.ROOT));
+            Function<RedisValue, Response> f = cmds.get(command.toUpperCase(Locale.ROOT));
             Response response = Response.Error("unknown command " + command);
-            if (cmd != null) {
-                response = cmd.execute(db, parse);
-                if (response != null) {
-                    key.attach(response);
-                }
+            if (f != null) {
+                Optional.ofNullable(f.apply(parse)).ifPresent(key::attach);
             } else {
                 key.attach(response);
             }
-            //
         }
         key.interestOps(SelectionKey.OP_WRITE);
     }
@@ -152,24 +146,36 @@ public class JedisServer {
         key.interestOps(SelectionKey.OP_READ);
     }
 
-    private void registerCmd() {
-
+    private Map<String, Function<RedisValue, Response>> registerCmd() throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         Reflections reflections = new Reflections("org.holicc.cmd");
-
+        Map<String, Function<RedisValue, Response>> cmds = new HashMap<>();
         Set<Class<? extends JedisCommand>> commands = reflections.getSubTypesOf(JedisCommand.class);
-        // TODO use proxy class
-        commands.stream().map(ReflectionUtils::getAllAnnotations)
-                .flatMap(Set::stream)
-                .filter(annotation -> annotation.annotationType().equals(Command.class))
-                .map(annotation -> ((Command) annotation).name())
-
-
-        Stream.of(
-                JedisCommand.ALL_COMMAND
-        ).forEach(cmd -> {
-            for (String c : cmd.supportCommands()) {
-                cmds.put(c, cmd);
+        for (Class<? extends JedisCommand> aClass : commands) {
+            Constructor<? extends JedisCommand> constructor = aClass.getDeclaredConstructor();
+            JedisCommand jedisCommand = constructor.newInstance();
+            Set<Method> methods = ReflectionUtils.getMethods(aClass, ReflectionUtils.withAnnotation(Command.class));
+            for (Method method : methods) {
+                Command annotation = method.getAnnotation(Command.class);
+                //
+                if (!cmds.containsKey(annotation.name())) {
+                    Function<RedisValue, Response> f = (redisValue) -> {
+                        try {
+                            Object v = redisValue.getValue();
+                            List<RedisValue> args = (List<RedisValue>) v;
+                            if (annotation.minimumArgs() > args.size() - 1)
+                                return Response.Error("wrong number args " + annotation.description());
+                            return (Response) method.invoke(jedisCommand, db, args.subList(1, args.size()));
+                        } catch (IllegalAccessException | InvocationTargetException e) {
+                            return Response.Error(e.getMessage());
+                        }
+                    };
+                    cmds.put(annotation.name(), f);
+                } else {
+                    Logger.warn("exists command [{}]", annotation.name());
+                }
             }
-        });
+        }
+        return cmds;
     }
+
 }

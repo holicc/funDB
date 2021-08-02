@@ -1,6 +1,7 @@
 package org.holicc.cmd.impl;
 
 import org.holicc.cmd.JedisCommand;
+import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 import org.holicc.db.DataPolicy;
@@ -13,33 +14,8 @@ import java.util.Locale;
 
 public class StringCommand implements JedisCommand {
 
-    private final String[] cmds = {
-            "SET",
-            "GET"
-    };
-
-    @Override
-    public Response execute(DataBase db, RedisValue redisValue) {
-        Object v = redisValue.getValue();
-        if (v instanceof List) {
-            List<RedisValue> args = (List<RedisValue>) v;
-            String name = args.remove(0).getValueAsString();
-            return switch (name.toUpperCase(Locale.ROOT)) {
-                case "SET" -> setFunction(db, args);
-                case "GET" -> getFunction(db, args);
-                default -> throw new IllegalStateException("Unexpected value: " + name.toUpperCase(Locale.ROOT));
-            };
-        }
-        throw new IllegalStateException("wrong number args");
-    }
-
-    @Override
-    public String[] supportCommands() {
-        return this.cmds;
-    }
-
-    private Response setFunction(DataBase db, List<RedisValue> args) {
-        if (args.size() <= 1) return Response.NullBulkResponse();
+    @Command(name = "SET", minimumArgs = 2,description = "https://redis.io/commands/set")
+    public Response set(DataBase db, List<RedisValue> args) {
         String key = args.remove(0).getValueAsString();
         String value = args.remove(0).getValueAsString();
         DataPolicy policy = DataPolicy.DEFAULT;
@@ -64,7 +40,8 @@ public class StringCommand implements JedisCommand {
         return Response.Ok();
     }
 
-    private Response getFunction(DataBase db, List<RedisValue> arg) {
+    @Command(name = "GET")
+    public Response get(DataBase db, List<RedisValue> arg) {
         DataEntry entry = db.getEntry(arg.remove(0).getValueAsString());
         if (entry == null) return Response.NullBulkResponse();
         return Response.BulkStringReply(entry.getValue().toString());

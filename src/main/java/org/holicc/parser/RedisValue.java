@@ -52,4 +52,8 @@ public class RedisValue<T> {
                 ", value=" + value +
                 '}';
     }
+
+    public Class<?> getType() {
+        return value.getClass();
+    }
 }

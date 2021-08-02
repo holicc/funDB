@@ -11,4 +11,8 @@ public @interface Command {
 
     String name();
 
+    String description() default "";
+
+    int minimumArgs() default 1;
+
 }
