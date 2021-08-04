@@ -13,6 +13,6 @@ public @interface Command {
 
     String description() default "";
 
-    int minimumArgs() default 1;
+    int minimumArgs() default 0;
 
 }

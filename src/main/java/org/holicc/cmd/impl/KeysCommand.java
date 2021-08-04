@@ -12,7 +12,12 @@ public class KeysCommand implements JedisCommand {
 
 
     @Command(name = "TTL")
-    public Response ttl(DataBase db, List<RedisValue> args){
+    public Response ttl(DataBase db, List<RedisValue> args) {
+        return null;
+    }
+
+    @Command(name = "KEYS", minimumArgs = 1)
+    public Response keys(DataBase db, List<RedisValue> args) {
         return null;
     }
 }

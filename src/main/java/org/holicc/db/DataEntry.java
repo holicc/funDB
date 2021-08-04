@@ -4,13 +4,18 @@ public class DataEntry {
 
     private String key;
 
-    private long ttl;
+    private long ttl = 0;
 
     private Object value;
 
-    private DataPolicy policy;
+    private DataPolicy policy = DataPolicy.DEFAULT;
 
-    public DataEntry(String key, long ttl, Object value, DataPolicy policy) {
+    public DataEntry(String key, Object value) {
+        this.key = key;
+        this.value = value;
+    }
+
+    public DataEntry(String key, Object value, long ttl, DataPolicy policy) {
         this.key = key;
         this.ttl = ttl;
         this.value = value;

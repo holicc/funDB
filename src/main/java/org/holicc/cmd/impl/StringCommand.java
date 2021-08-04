@@ -8,34 +8,31 @@ import org.holicc.db.DataPolicy;
 import org.holicc.parser.RedisValue;
 import org.holicc.server.Response;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 
 public class StringCommand implements JedisCommand {
 
-    @Command(name = "SET", minimumArgs = 2,description = "https://redis.io/commands/set")
-    public Response set(DataBase db, List<RedisValue> args) {
-        String key = args.remove(0).getValueAsString();
-        String value = args.remove(0).getValueAsString();
+    @Command(name = "SET", minimumArgs = 2, description = "https://redis.io/commands/set")
+    public Response set(DataBase db, String key, String value, String... options) {
         DataPolicy policy = DataPolicy.DEFAULT;
         long ttl = 0;
         // parse Options
-        if (args.size() >= 1) {
-            Duration now = Duration.ofMillis(System.currentTimeMillis());
-            String option = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
-            String time = args.remove(0).getValueAsString();
+        if (options != null && options.length >= 1) {
+            String option = options[0].toUpperCase(Locale.ROOT);
+            long time = Long.parseLong(options[1]);
+            long now = System.currentTimeMillis();
             switch (option) {
-                case "EX" -> ttl = now.plus(Duration.ofSeconds(Integer.parseInt(time))).toMillis();
-                case "EXAT" -> ttl = Integer.parseInt(time) * 1000L;
-                case "PX" -> ttl = now.plus(Duration.ofMillis(Integer.parseInt(time))).toMillis();
-                case "PXAT" -> ttl = Long.parseLong(time);
+                case "EX" -> ttl = time * 1000L + now;
+                case "EXAT" -> ttl = time * 1000L;
+                case "PX" -> ttl = now + time;
+                case "PXAT" -> ttl = time;
                 case "NX" -> policy = DataPolicy.PUT_IF_ABSENT;
                 case "XX" -> policy = DataPolicy.PUT_IF_EXISTS;
             }
         }
         // to db
-        DataEntry entry = new DataEntry(key, ttl, value, policy);
+        DataEntry entry = new DataEntry(key, value, ttl, policy);
         db.persistInMemory(entry);
         return Response.Ok();
     }
