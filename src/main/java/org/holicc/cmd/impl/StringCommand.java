@@ -2,19 +2,17 @@ package org.holicc.cmd.impl;
 
 import org.holicc.cmd.JedisCommand;
 import org.holicc.cmd.annotation.Command;
+import org.holicc.cmd.exception.CommandException;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 import org.holicc.db.DataPolicy;
-import org.holicc.parser.RedisValue;
-import org.holicc.server.Response;
 
-import java.util.List;
 import java.util.Locale;
 
 public class StringCommand implements JedisCommand {
 
     @Command(name = "SET", minimumArgs = 2, description = "https://redis.io/commands/set")
-    public Response set(DataBase db, String key, String value, String... options) {
+    public String set(DataBase db, String key, String value, String... options) {
         DataPolicy policy = DataPolicy.DEFAULT;
         long ttl = 0;
         // parse Options
@@ -34,13 +32,14 @@ public class StringCommand implements JedisCommand {
         // to db
         DataEntry entry = new DataEntry(key, value, ttl, policy);
         db.persistInMemory(entry);
-        return Response.Ok();
+        return "";
     }
 
-    @Command(name = "GET")
-    public Response get(DataBase db, List<RedisValue> arg) {
-        DataEntry entry = db.getEntry(arg.remove(0).getValueAsString());
-        if (entry == null) return Response.NullBulkResponse();
-        return Response.BulkStringReply(entry.getValue().toString());
+    @Command(name = "GET", minimumArgs = 1, description = "https://redis.io/commands/get")
+    public String get(DataBase db, String key) throws CommandException {
+        if (key == null || key.equals("")) throw new CommandException("empty key");
+        DataEntry entry = db.getEntry(key);
+        if (entry == null) return null;
+        return entry.getValue().toString();
     }
 }

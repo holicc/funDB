@@ -16,8 +16,8 @@ public class KeysCommand implements JedisCommand {
         return null;
     }
 
-    @Command(name = "KEYS", minimumArgs = 1)
-    public Response keys(DataBase db, List<RedisValue> args) {
-        return null;
+    @Command(name = "KEYS", minimumArgs = 1, description = "https://redis.io/commands/keys")
+    public Response keys(DataBase db, String pattern) {
+        return Response.ArrayReply(db.keys(pattern));
     }
 }

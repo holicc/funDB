@@ -1,11 +1,15 @@
 package org.holicc.db;
 
+import org.holicc.util.Wildcard;
+
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class LocalDataBase implements DataBase {
 
-    private final Map<String, DataEntry> entryMap = new ConcurrentHashMap<>();
+    private final Map<String, DataEntry> entryMap = new HashMap<>();
 
     @Override
     public void persistInMemory(DataEntry entry) {
@@ -25,4 +29,15 @@ public class LocalDataBase implements DataBase {
             return null;
         }
     }
+
+    @Override
+    public Set<String> keys(String pattern) {
+        if (pattern == null || pattern.equals("")) return Set.of();
+        Wildcard wildcard = Wildcard.compile(pattern);
+        return entryMap.keySet().stream()
+                .filter(wildcard::isMatch)
+                .collect(Collectors.toSet());
+    }
+
+
 }

@@ -1,10 +1,7 @@
 package org.holicc.server;
 
-import org.tinylog.Logger;
-
-import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 
 public class Response {
 
@@ -31,7 +28,30 @@ public class Response {
         return new Response("-ERR " + msg + "\r\n");
     }
 
+    public static Response ArrayReply(Collection<?> collection) {
+        if (collection.isEmpty()) return EmptyArrayReply();
+        StringBuilder builder = new StringBuilder("*" + collection.size() + "\r\n");
+        for (Object item : collection) {
+            if (item instanceof String) {
+                builder.append(encodeStr((String) item));
+            }
+        }
+        return new Response(builder.toString());
+    }
+
+    public static Response EmptyArrayReply() {
+        return new Response("*0\r\n");
+    }
+
     public byte[] toBytes() {
         return msg.getBytes(StandardCharsets.UTF_8);
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+
+    private static String encodeStr(String data) {
+        return "$" + data.length() + "\r\n" + data + "\r\n";
     }
 }

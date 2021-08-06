@@ -7,8 +7,6 @@ import java.util.List;
 public class DefaultProtocolParser implements ProtocolParser {
 
 
-    private String cmdName;
-
     /**
      * words represent data range
      * eg: $3foo\r\n  => Word(2,4)
