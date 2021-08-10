@@ -1,9 +1,9 @@
 package org.holicc.util;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 public class Wildcard {
 
@@ -14,12 +14,25 @@ public class Wildcard {
     }
 
     /**
-     * types: 0 normal 1 all 2 any 3 []
+     * types: 0 normal 1 all 2 any 3 [] 4 [a-b] 5 [^a]
      */
-    static record Item(char c, Map<Character, Boolean> set, int type) {
+    static record Item(char c, Set<Character> set, int type) {
 
         public boolean contains(char c) {
-            return set != null && (set.containsKey(c) && set.get(c));
+            if (type == 4) { // range match
+                if (set.contains(c)) return true;
+                char min = Character.MAX_VALUE;
+                char max = Character.MIN_VALUE;
+                for (Character i : set) {
+                    if (i < min) min = i;
+                    if (i > max) max = i;
+                }
+                return c >= min && c <= max;
+            } else if (type == 5) { // negative match
+                return !set.contains(c);
+            } else {
+                return set.contains(c);
+            }
         }
     }
 
@@ -34,13 +47,14 @@ public class Wildcard {
         //
         for (int i = 1; i <= m; i++) {
             for (int j = 1; j <= n; j++) {
-                if (items.get(j - 1).type == 1) {
-                    table[i][j] = table[i][j - 1] || table[i - 1][j];
-                } else {
+                Item item = items.get(j - 1);
+                if (item.type == 1) table[i][j] = table[i][j - 1] || table[i - 1][j];
+                else {
                     table[i][j] = table[i - 1][j - 1] &&
-                            (items.get(j - 1).type == 2 ||
-                                    (items.get(j - 1).type == 0 && key.charAt(i - 1) == items.get(j-1).c) ||
-                                    (items.get(j - 1).type == 3 && items.get(j - 1).contains(key.charAt(i - 1)))
+                            (
+                                    item.type == 2
+                                            || (item.type == 0 && key.charAt(i - 1) == item.c)
+                                            || (item.type >= 3 && item.contains(key.charAt(i - 1)))
                             );
                 }
             }
@@ -51,7 +65,7 @@ public class Wildcard {
     public static Wildcard compile(String pattern) {
         List<Item> items = new ArrayList<>();
         boolean escape = false, inSet = false;
-        Map<Character, Boolean> set = new HashMap<>();
+        Set<Character> set = new HashSet<>();
         char[] chars = pattern.toCharArray();
         for (char c : chars) {
             if (escape) {
@@ -62,15 +76,24 @@ public class Wildcard {
             else if (c == '\\') escape = true;
             else if (c == '[') {
                 if (!inSet) inSet = true;
-                else set.put(c, true);
+                else set.add(c);
             } else if (c == ']') {
                 if (inSet) {
                     inSet = false;
-                    items.add(new Item(c, set, 3));
+                    int type = 3;
+                    if (set.contains('-')) {
+                        type = 4;
+                        set.remove('-');
+                    } else if (set.contains('^')) {
+                        type = 5;
+                        set.remove('^');
+                    }
+                    items.add(new Item(c, set, type));
                 } else items.add(new Item(c, null, 0));
             } else {
-                if (inSet) set.put(c, true);
-                else items.add(new Item(c, null, 0));
+                if (inSet) {
+                    set.add(c);
+                } else items.add(new Item(c, null, 0));
             }
         }
         return new Wildcard(items);

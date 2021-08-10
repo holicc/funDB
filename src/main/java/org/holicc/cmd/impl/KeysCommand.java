@@ -7,6 +7,7 @@ import org.holicc.parser.RedisValue;
 import org.holicc.server.Response;
 
 import java.util.List;
+import java.util.Set;
 
 public class KeysCommand implements JedisCommand {
 
@@ -17,7 +18,7 @@ public class KeysCommand implements JedisCommand {
     }
 
     @Command(name = "KEYS", minimumArgs = 1, description = "https://redis.io/commands/keys")
-    public Response keys(DataBase db, String pattern) {
-        return Response.ArrayReply(db.keys(pattern));
+    public Set<String> keys(DataBase db, String pattern) {
+        return db.keys(pattern);
     }
 }
