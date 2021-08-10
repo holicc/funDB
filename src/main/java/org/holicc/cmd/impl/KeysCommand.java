@@ -13,8 +13,8 @@ public class KeysCommand implements JedisCommand {
 
 
     @Command(name = "TTL")
-    public Response ttl(DataBase db, List<RedisValue> args) {
-        return null;
+    public long ttl(DataBase db, List<RedisValue> args) {
+        return 0;
     }
 
     @Command(name = "KEYS", minimumArgs = 1, description = "https://redis.io/commands/keys")

@@ -5,8 +5,8 @@ import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 import org.holicc.db.DataPolicy;
 import org.holicc.db.LocalDataBase;
-import org.holicc.parser.ProtocolParseException;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -21,9 +21,14 @@ class StringCommandTest {
     StringCommand command = new StringCommand();
     DataBase dataBase = new LocalDataBase();
 
+    @BeforeEach
+    void prepareData() {
+        dataBase.persistInMemory(new DataEntry("a", "1"));
+    }
+
     @ParameterizedTest
     @MethodSource
-    void set(String cmd, DataEntry except) throws ProtocolParseException {
+    void set(String cmd, String exceptResponse, DataEntry exceptEntry) throws CommandException {
         String[] cmds = cmd.split(" ");
         String[] options = null;
         if (cmds.length > 3) {
@@ -31,18 +36,20 @@ class StringCommandTest {
         }
         String response = command.set(dataBase, cmds[1], cmds[2], options);
         //
-        Assertions.assertNotNull(response);
+        Assertions.assertEquals(exceptResponse, response);
         //
         DataEntry entry = dataBase.getEntry(cmds[1]);
-        equalsEntry(except, entry);
+        equalsEntry(exceptEntry, entry);
     }
 
 
     static Stream<Arguments> set() {
         return Stream.of(
-                Arguments.of("set a 1", new DataEntry("a", "1")),
-                Arguments.of("set a 1 EX 1", new DataEntry("a", "1", System.currentTimeMillis() + 1000L, DataPolicy.DEFAULT)),
-                Arguments.of("set a 1 PX 2000", new DataEntry("a", "1", System.currentTimeMillis() + 2000, DataPolicy.DEFAULT))
+                Arguments.of("set a 2", null, new DataEntry("a", "2")),
+                Arguments.of("set a 2 NX", null, new DataEntry("a", "1")),
+                Arguments.of("set a 2 XX", "1", new DataEntry("a", "2", 0, DataPolicy.PUT_IF_EXISTS)),
+                Arguments.of("set a 2 EX 1", null, new DataEntry("a", "2", System.currentTimeMillis() + 1000L, DataPolicy.DEFAULT)),
+                Arguments.of("set a 2 PX 2000", null, new DataEntry("a", "2", System.currentTimeMillis() + 2000, DataPolicy.DEFAULT))
         );
     }
 

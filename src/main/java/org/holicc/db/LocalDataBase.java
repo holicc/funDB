@@ -12,8 +12,8 @@ public class LocalDataBase implements DataBase {
     private final Map<String, DataEntry> entryMap = new HashMap<>();
 
     @Override
-    public void persistInMemory(DataEntry entry) {
-        entryMap.put(entry.getKey(), entry);
+    public DataEntry persistInMemory(DataEntry entry) {
+        return entryMap.put(entry.getKey(), entry);
     }
 
     @Override

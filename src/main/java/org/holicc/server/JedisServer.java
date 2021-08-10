@@ -163,9 +163,28 @@ public class JedisServer {
                             Object v = redisValue.getValue();
                             List<RedisValue> args = (List<RedisValue>) v;
                             if (annotation.minimumArgs() > args.size() - 1)
-                                return Response.Error("wrong number args " + annotation.description());
-                            return (Response) method.invoke(jedisCommand, db, args.subList(1, args.size()));
-                        } catch (IllegalAccessException | InvocationTargetException e) {
+                                return Response.Error("wrong number args of [" + annotation.name() + "], see " + annotation.description());
+                            List<RedisValue> params = args.subList(1, args.size());
+                            Class<?>[] parameterTypes = method.getParameterTypes();
+                            List<Object> param = new ArrayList<>();
+                            for (Class<?> parameterType : parameterTypes) {
+                                if (parameterType.equals(DataBase.class)) {
+                                    param.add(db);
+                                } else if (parameterType.equals(String.class)) {
+                                    param.add(params.isEmpty() ? "" : params.remove(0).getValueAsString());
+                                } else if (parameterType.equals(String[].class)) {
+                                    param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
+                                }
+                            }
+                            Object invoke = method.invoke(jedisCommand, param.toArray());
+                            if (invoke instanceof String) {
+                                return Response.BulkStringReply((String) invoke);
+                            } else if (invoke instanceof Collection) {
+                                return Response.ArrayReply((Collection<?>) invoke);
+                            } else {
+                                return Response.Ok();
+                            }
+                        } catch (Exception e) {
                             return Response.Error(e.getMessage());
                         }
                     };

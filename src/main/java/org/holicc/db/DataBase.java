@@ -7,7 +7,7 @@ import java.util.Set;
  */
 public interface DataBase {
 
-    void persistInMemory(DataEntry entry);
+    DataEntry persistInMemory(DataEntry entry);
 
     Set<String> keys(String pattern);
 
