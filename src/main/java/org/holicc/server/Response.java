@@ -3,17 +3,10 @@ package org.holicc.server;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 
-public class Response {
-
-    private String msg;
-
-
-    public Response(String msg) {
-        this.msg = msg;
-    }
+public record Response(String msg) {
 
     public static Response NullBulkResponse() {
-        return null;
+        return new Response("$-1\r\n");
     }
 
     public static Response BulkStringReply(String data) {
@@ -41,6 +34,10 @@ public class Response {
 
     public static Response EmptyArrayReply() {
         return new Response("*0\r\n");
+    }
+
+    public static Response IntReply(int val) {
+        return new Response(":" + val + "\r\n");
     }
 
     public byte[] toBytes() {

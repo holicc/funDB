@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -45,11 +46,11 @@ class StringCommandTest {
 
     static Stream<Arguments> set() {
         return Stream.of(
-                Arguments.of("set a 2", null, new DataEntry("a", "2")),
-                Arguments.of("set a 2 NX", null, new DataEntry("a", "1")),
-                Arguments.of("set a 2 XX", "1", new DataEntry("a", "2", 0, DataPolicy.PUT_IF_EXISTS)),
-                Arguments.of("set a 2 EX 1", null, new DataEntry("a", "2", System.currentTimeMillis() + 1000L, DataPolicy.DEFAULT)),
-                Arguments.of("set a 2 PX 2000", null, new DataEntry("a", "2", System.currentTimeMillis() + 2000, DataPolicy.DEFAULT))
+                Arguments.of("set a 2", "OK", new DataEntry("a", "2")),
+                Arguments.of("set a 2 NX", "OK", new DataEntry("a", "1")),
+                Arguments.of("set a 2 XX", "1", new DataEntry("a", "2", null, DataPolicy.PUT_IF_EXISTS)),
+                Arguments.of("set a 2 EX 100", "OK", new DataEntry("a", "2", LocalDateTime.now().plusSeconds(101))),
+                Arguments.of("set a 2 PX 200000", "OK", new DataEntry("a", "2", LocalDateTime.now().plusSeconds(201)))
         );
     }
 
@@ -59,7 +60,8 @@ class StringCommandTest {
         String[] cmds = cmd.split(" ");
         dataBase.persistInMemory(except);
         String response = command.get(dataBase, cmds[1]);
-        Assertions.assertEquals(except.getValue(), response);
+        String exceptStr = except.getValue();
+        Assertions.assertEquals(exceptStr, response);
     }
 
     static Stream<Arguments> get() {

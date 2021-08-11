@@ -2,6 +2,7 @@ package org.holicc.db;
 
 import org.holicc.util.Wildcard;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -20,12 +21,11 @@ public class LocalDataBase implements DataBase {
     public DataEntry getEntry(String key) {
         if (!entryMap.containsKey(key)) return null;
         DataEntry entry = entryMap.get(key);
-        long ttl = entry.getTtl();
-        if (ttl == 0 || ttl > System.currentTimeMillis()) {
+        LocalDateTime ttl = entry.getTtl();
+        if (ttl == null || LocalDateTime.now().isBefore(ttl)) {
             return entry;
         } else {
-            DataEntry remove = entryMap.remove(key);
-            // TODO ObjectPool recycle
+            entryMap.remove(key);
             return null;
         }
     }

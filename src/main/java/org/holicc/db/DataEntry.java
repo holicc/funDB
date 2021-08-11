@@ -1,10 +1,12 @@
 package org.holicc.db;
 
+import java.time.LocalDateTime;
+
 public class DataEntry {
 
     private String key;
 
-    private long ttl = 0;
+    private LocalDateTime ttl;
 
     private Object value;
 
@@ -15,7 +17,13 @@ public class DataEntry {
         this.value = value;
     }
 
-    public DataEntry(String key, Object value, long ttl, DataPolicy policy) {
+    public DataEntry(String key, Object value, LocalDateTime ttl) {
+        this.key = key;
+        this.ttl = ttl;
+        this.value = value;
+    }
+
+    public DataEntry(String key, Object value, LocalDateTime ttl, DataPolicy policy) {
         this.key = key;
         this.ttl = ttl;
         this.value = value;
@@ -30,22 +38,21 @@ public class DataEntry {
         this.key = key;
     }
 
-    public long getTtl() {
+    public LocalDateTime getTtl() {
         return ttl;
     }
 
-    public void setTtl(long ttl) {
+    public void setTtl(LocalDateTime ttl) {
         this.ttl = ttl;
-    }
-
-    public Object getValue() {
-        return value;
     }
 
     public void setValue(Object value) {
         this.value = value;
     }
 
+    public <T> T getValue(){
+        return (T)value;
+    }
 
     public DataPolicy getPolicy() {
         return policy;

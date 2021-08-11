@@ -3,18 +3,21 @@ package org.holicc.cmd.impl;
 import org.holicc.cmd.JedisCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
-import org.holicc.parser.RedisValue;
-import org.holicc.server.Response;
+import org.holicc.db.DataEntry;
 
-import java.util.List;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Set;
 
 public class KeysCommand implements JedisCommand {
 
 
-    @Command(name = "TTL")
-    public long ttl(DataBase db, List<RedisValue> args) {
-        return 0;
+    @Command(name = "TTL", minimumArgs = 1, description = "https://redis.io/commands/ttl")
+    public long ttl(DataBase db, String key) {
+        DataEntry entry = db.getEntry(key);
+        if (entry == null) return -2;
+        if (entry.getTtl() == null) return -1;
+        return Duration.between(LocalDateTime.now(), entry.getTtl()).toSeconds();
     }
 
     @Command(name = "KEYS", minimumArgs = 1, description = "https://redis.io/commands/keys")

@@ -32,7 +32,7 @@ public class JedisServer {
     private DataBase db;
     private Map<String, Function<RedisValue, Response>> cmds;
 
-    private ProtocolParser parser = new DefaultProtocolParser();
+    private final ProtocolParser parser = new DefaultProtocolParser();
     private static final JedisServer server = new JedisServer();
 
     private static final String BANNER = "    \n" +
@@ -174,6 +174,8 @@ public class JedisServer {
                                     param.add(params.isEmpty() ? "" : params.remove(0).getValueAsString());
                                 } else if (parameterType.equals(String[].class)) {
                                     param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
+                                } else {
+                                    param.add(params.isEmpty() ? null : params.remove(0).getValueAsString());
                                 }
                             }
                             Object invoke = method.invoke(jedisCommand, param.toArray());
@@ -181,8 +183,10 @@ public class JedisServer {
                                 return Response.BulkStringReply((String) invoke);
                             } else if (invoke instanceof Collection) {
                                 return Response.ArrayReply((Collection<?>) invoke);
+                            } else if (invoke instanceof Long || invoke instanceof Integer) {
+                                return Response.IntReply((int) invoke);
                             } else {
-                                return Response.Ok();
+                                return Response.NullBulkResponse();
                             }
                         } catch (Exception e) {
                             return Response.Error(e.getMessage());

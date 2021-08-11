@@ -7,11 +7,12 @@ public class TestUtils {
 
     static void equalsEntry(DataEntry except, DataEntry entry) {
         Assertions.assertEquals(except.getKey(), entry.getKey());
-        if (entry.getTtl() != 0) {
-            System.out.println(Math.abs(except.getTtl() - entry.getTtl()));
-            Assertions.assertTrue(Math.abs(except.getTtl() - entry.getTtl()) < 1000);
+        if (entry.getTtl() != null) {
+            Assertions.assertTrue(except.getTtl().isAfter(entry.getTtl()));
         }
-        Assertions.assertEquals(except.getValue(), entry.getValue());
+        Object o = except.getValue();
+        Object b = entry.getValue();
+        Assertions.assertEquals(o, b);
         Assertions.assertEquals(except.getPolicy(), entry.getPolicy());
     }
 }
