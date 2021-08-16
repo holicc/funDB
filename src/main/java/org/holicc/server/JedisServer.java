@@ -35,42 +35,54 @@ public class JedisServer {
     private final ProtocolParser parser = new DefaultProtocolParser();
     private static final JedisServer server = new JedisServer();
 
-    private static final String BANNER = "    \n" +
-            "             ▄▄▄██▀▀▀▓█████ ▓█████▄  ██▓  ██████\n" +
-            "               ▒██   ▓█   ▀ ▒██▀ ██▌▓██▒▒██    ▒\n" +
-            "               ░██   ▒███   ░██   █▌▒██▒░ ▓██▄\n" +
-            "            ▓██▄██▓  ▒▓█  ▄ ░▓█▄   ▌░██░  ▒   ██▒\n" +
-            "             ▓███▒   ░▒████▒░▒████▓ ░██░▒██████▒▒\n" +
-            "             ▒▓▒▒░   ░░ ▒░ ░ ▒▒▓  ▒ ░▓  ▒ ▒▓▒ ▒ ░\n" +
-            "             ▒ ░▒░    ░ ░  ░ ░ ▒  ▒  ▒ ░░ ░▒  ░ ░\n" +
-            "             ░ ░ ░      ░    ░ ░  ░  ▒ ░░  ░  ░\n" +
-            "             ░   ░      ░  ░   ░     ░        ░\n" +
-            "                             ░";
+    private static final String BANNER = """
+             ▄▄▄██▀▀▀▓█████ ▓█████▄  ██▓  ██████
+               ▒██   ▓█   ▀ ▒██▀ ██▌▓██▒▒██    ▒
+               ░██   ▒███   ░██   █▌▒██▒░ ▓██▄
+            ▓██▄██▓  ▒▓█  ▄ ░▓█▄   ▌░██░  ▒   ██▒
+             ▓███▒   ░▒████▒░▒████▓ ░██░▒██████▒▒
+             ▒▓▒▒░   ░░ ▒░ ░ ▒▒▓  ▒ ░▓  ▒ ▒▓▒ ▒ ░
+             ▒ ░▒░    ░ ░  ░ ░ ▒  ▒  ▒ ░░ ░▒  ░ ░
+             ░ ░ ░      ░    ░ ░  ░  ▒ ░░  ░  ░
+             ░   ░      ░  ░   ░     ░        ░
+                             ░""".indent(3);
+
 
     private JedisServer() {
-
     }
 
     public static class Builder {
 
         private DataBase db;
+        private String host;
+        private int port;
 
         public Builder database(DataBase db) {
             this.db = db;
             return this;
         }
 
+        public Builder host(String host) {
+            this.host = host;
+            return this;
+        }
+
+        public Builder port(int port) {
+            this.port = port;
+            return this;
+        }
+
         public JedisServer build() {
             JedisServer server = new JedisServer();
+            server.host = host == null || host.equals("") ? "localhost" : host;
+            server.port = port == 0 ? 7891 : port;
             server.db = db;
             return server;
         }
     }
 
 
-    public void run(String host, int port) throws Exception {
-        this.host = host;
-        this.port = port;
+    public void run() throws Exception {
         System.out.println(BANNER);
         //
         Selector selector = Selector.open();
