@@ -3,6 +3,7 @@ package org.holicc.server;
 import org.holicc.cmd.JedisCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
+import org.holicc.db.PersistenceMode;
 import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParseException;
 import org.holicc.parser.ProtocolParser;
@@ -30,10 +31,12 @@ public class JedisServer {
     private int port;
 
     private DataBase db;
-    private Map<String, Function<RedisValue, Response>> cmds;
+    private Map<String, Function<List<RedisValue>, Response>> cmds;
 
     private final ProtocolParser parser = new DefaultProtocolParser();
-    private static final JedisServer server = new JedisServer();
+
+    private final ServerConfig config;
+
 
     private static final String BANNER = """
              ▄▄▄██▀▀▀▓█████ ▓█████▄  ██▓  ██████
@@ -116,6 +119,9 @@ public class JedisServer {
         }
     }
 
+    public ServerConfig getConfig() {
+        return this.config;
+    }
 
     private void register(Selector selector, ServerSocketChannel serverSocketChannel) throws IOException {
         SocketChannel client = serverSocketChannel.accept();
@@ -133,13 +139,17 @@ public class JedisServer {
         }
         if (size > 0) {
             byte[] array = buffer.array();
-            // TODO parse is slow
             RedisValue parse = parser.parse(array, 0);
-            String command = parse.getCommand();
-            Function<RedisValue, Response> f = cmds.get(command.toUpperCase(Locale.ROOT));
+            List<RedisValue> args = (List<RedisValue>) parse.getValue();
+            if (args.isEmpty()) throw new ProtocolParseException("none command data");
+            String command = args.remove(0).getValueAsString();
+            if (command.equals("CONFIG") && !args.isEmpty()) {
+                command += "-" + args.remove(0).getValueAsString();
+            }
+            Function<List<RedisValue>, Response> f = cmds.get(command.toUpperCase(Locale.ROOT));
             Response response = Response.Error("unknown command " + command);
             if (f != null) {
-                Optional.ofNullable(f.apply(parse)).ifPresent(key::attach);
+                Optional.ofNullable(f.apply(args)).ifPresent(key::attach);
             } else {
                 key.attach(response);
             }
@@ -158,9 +168,9 @@ public class JedisServer {
         key.interestOps(SelectionKey.OP_READ);
     }
 
-    private Map<String, Function<RedisValue, Response>> registerCmd() throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    private Map<String, Function<List<RedisValue>, Response>> registerCmd() throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         Reflections reflections = new Reflections("org.holicc.cmd");
-        Map<String, Function<RedisValue, Response>> cmds = new HashMap<>();
+        Map<String, Function<List<RedisValue>, Response>> cmds = new HashMap<>();
         Set<Class<? extends JedisCommand>> commands = reflections.getSubTypesOf(JedisCommand.class);
         for (Class<? extends JedisCommand> aClass : commands) {
             Constructor<? extends JedisCommand> constructor = aClass.getDeclaredConstructor();
@@ -168,49 +178,51 @@ public class JedisServer {
             Set<Method> methods = ReflectionUtils.getMethods(aClass, ReflectionUtils.withAnnotation(Command.class));
             for (Method method : methods) {
                 Command annotation = method.getAnnotation(Command.class);
-                //
+                String command = annotation.subCommand().equals("") ?
+                        annotation.name() : String.join("-", annotation.name(), annotation.subCommand());
                 if (!cmds.containsKey(annotation.name())) {
-                    Function<RedisValue, Response> f = (redisValue) -> {
-                        try {
-                            Object v = redisValue.getValue();
-                            List<RedisValue> args = (List<RedisValue>) v;
-                            if (annotation.minimumArgs() > args.size() - 1)
-                                return Response.Error("wrong number args of [" + annotation.name() + "], see " + annotation.description());
-                            List<RedisValue> params = args.subList(1, args.size());
-                            Class<?>[] parameterTypes = method.getParameterTypes();
-                            List<Object> param = new ArrayList<>();
-                            for (Class<?> parameterType : parameterTypes) {
-                                if (parameterType.equals(DataBase.class)) {
-                                    param.add(db);
-                                } else if (parameterType.equals(String.class)) {
-                                    param.add(params.isEmpty() ? "" : params.remove(0).getValueAsString());
-                                } else if (parameterType.equals(String[].class)) {
-                                    param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
-                                } else {
-                                    param.add(params.isEmpty() ? null : params.remove(0).getValueAsString());
-                                }
-                            }
-                            Object invoke = method.invoke(jedisCommand, param.toArray());
-                            if (invoke instanceof String) {
-                                return Response.BulkStringReply((String) invoke);
-                            } else if (invoke instanceof Collection) {
-                                return Response.ArrayReply((Collection<?>) invoke);
-                            } else if (invoke instanceof Long || invoke instanceof Integer) {
-                                return Response.IntReply((int) invoke);
-                            } else {
-                                return Response.NullBulkResponse();
-                            }
-                        } catch (Exception e) {
-                            return Response.Error(e.getMessage());
-                        }
-                    };
-                    cmds.put(annotation.name(), f);
+                    Function<List<RedisValue>, Response> f = (args) -> doCommand(jedisCommand, method, annotation, args);
+                    cmds.put(command, f);
                 } else {
                     Logger.warn("exists command [{}]", annotation.name());
                 }
             }
         }
         return cmds;
+    }
+
+    private Response doCommand(JedisCommand jedisCommand, Method method, Command annotation, List<RedisValue> args) {
+        try {
+            if (annotation.minimumArgs() > args.size()) {
+                return Response.Error("wrong number args of [" + annotation.name() + "], see " + annotation.description());
+            }
+            List<RedisValue> params = args.subList(1, args.size());
+            Class<?>[] parameterTypes = method.getParameterTypes();
+            List<Object> param = new ArrayList<>();
+            for (Class<?> parameterType : parameterTypes) {
+                if (parameterType.equals(DataBase.class)) {
+                    param.add(db);
+                } else if (parameterType.equals(String.class)) {
+                    param.add(params.isEmpty() ? "" : params.remove(0).getValueAsString());
+                } else if (parameterType.equals(String[].class)) {
+                    param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
+                } else {
+                    param.add(params.isEmpty() ? null : params.remove(0).getValueAsString());
+                }
+            }
+            Object invoke = method.invoke(jedisCommand, param.toArray());
+            if (invoke instanceof String) {
+                return Response.BulkStringReply((String) invoke);
+            } else if (invoke instanceof Collection) {
+                return Response.ArrayReply((Collection<?>) invoke);
+            } else if (invoke instanceof Long || invoke instanceof Integer) {
+                return Response.IntReply((int) invoke);
+            } else {
+                return Response.NullBulkResponse();
+            }
+        } catch (Exception e) {
+            return Response.Error(e.getMessage());
+        }
     }
 
 }
