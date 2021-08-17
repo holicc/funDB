@@ -11,7 +11,7 @@ public class ConfigCommand implements JedisCommand {
 
     @Command(name = "CONFIG", subCommand = "GET", minimumArgs = 1, description = "https://redis.io/commands/config-get")
     public String configGet(ServerConfig config, String name) {
-        return "";
+        return config.isExists(name);
     }
 
     @Command(name = "CONFIG", subCommand = "SET", minimumArgs = 2, description = "https://redis.io/commands/config-set")

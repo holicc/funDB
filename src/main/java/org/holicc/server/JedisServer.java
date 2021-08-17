@@ -27,15 +27,14 @@ import java.util.function.Function;
 
 public class JedisServer {
 
-    private String host;
     private int port;
-
+    private String host;
     private DataBase db;
+    private ServerConfig config = new ServerConfig();
+
     private Map<String, Function<List<RedisValue>, Response>> cmds;
 
     private final ProtocolParser parser = new DefaultProtocolParser();
-
-    private final ServerConfig config;
 
 
     private static final String BANNER = """
@@ -58,6 +57,7 @@ public class JedisServer {
 
         private DataBase db;
         private String host;
+        private String configFile;
         private int port;
 
         public Builder database(DataBase db) {
@@ -75,11 +75,17 @@ public class JedisServer {
             return this;
         }
 
+        public Builder config(String file) {
+            this.configFile = file;
+            return this;
+        }
+
         public JedisServer build() {
             JedisServer server = new JedisServer();
             server.host = host == null || host.equals("") ? "localhost" : host;
             server.port = port == 0 ? 7891 : port;
             server.db = db;
+            Optional.ofNullable(configFile).ifPresent(f -> server.config = new ServerConfig(configFile));
             return server;
         }
     }
@@ -168,7 +174,8 @@ public class JedisServer {
         key.interestOps(SelectionKey.OP_READ);
     }
 
-    private Map<String, Function<List<RedisValue>, Response>> registerCmd() throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    private Map<String, Function<List<RedisValue>, Response>> registerCmd() throws NoSuchMethodException,
+            InvocationTargetException, InstantiationException, IllegalAccessException {
         Reflections reflections = new Reflections("org.holicc.cmd");
         Map<String, Function<List<RedisValue>, Response>> cmds = new HashMap<>();
         Set<Class<? extends JedisCommand>> commands = reflections.getSubTypesOf(JedisCommand.class);
@@ -206,6 +213,8 @@ public class JedisServer {
                     param.add(params.isEmpty() ? "" : params.remove(0).getValueAsString());
                 } else if (parameterType.equals(String[].class)) {
                     param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
+                } else if (parameterType.equals(ServerConfig.class)) {
+                    param.add(config);
                 } else {
                     param.add(params.isEmpty() ? null : params.remove(0).getValueAsString());
                 }
