@@ -19,8 +19,8 @@ import static org.holicc.cmd.impl.TestUtils.equalsEntry;
 
 class StringCommandTest {
 
-    StringCommand command = new StringCommand();
     DataBase dataBase = new LocalDataBase();
+    StringCommand command = new StringCommand(dataBase);
 
     @BeforeEach
     void prepareData() {
@@ -35,7 +35,7 @@ class StringCommandTest {
         if (cmds.length > 3) {
             options = Arrays.copyOfRange(cmds, 3, cmds.length);
         }
-        String response = command.set(dataBase, cmds[1], cmds[2], options);
+        String response = command.set(cmds[1], cmds[2], options);
         //
         Assertions.assertEquals(exceptResponse, response);
         //
@@ -59,7 +59,7 @@ class StringCommandTest {
     void get(String cmd, DataEntry except) throws CommandException {
         String[] cmds = cmd.split(" ");
         dataBase.persistInMemory(except);
-        String response = command.get(dataBase, cmds[1]);
+        String response = command.get(cmds[1]);
         String exceptStr = except.getValue();
         Assertions.assertEquals(exceptStr, response);
     }

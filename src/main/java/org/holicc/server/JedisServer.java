@@ -1,14 +1,13 @@
 package org.holicc.server;
 
+import org.holicc.cmd.CommandWrapper;
 import org.holicc.cmd.JedisCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
-import org.holicc.db.PersistenceMode;
 import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParseException;
 import org.holicc.parser.ProtocolParser;
 import org.holicc.parser.RedisValue;
-import org.reflections.ReflectionUtils;
 import org.reflections.Reflections;
 import org.tinylog.Logger;
 
@@ -23,7 +22,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.*;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class JedisServer {
 
@@ -32,7 +31,7 @@ public class JedisServer {
     private DataBase db;
     private ServerConfig config = new ServerConfig();
 
-    private Map<String, Function<List<RedisValue>, Response>> cmds;
+    private Map<String, CommandWrapper> commands;
 
     private final ProtocolParser parser = new DefaultProtocolParser();
 
@@ -80,12 +79,14 @@ public class JedisServer {
             return this;
         }
 
-        public JedisServer build() {
+        public JedisServer build() throws IOException {
             JedisServer server = new JedisServer();
             server.host = host == null || host.equals("") ? "localhost" : host;
             server.port = port == 0 ? 7891 : port;
             server.db = db;
-            Optional.ofNullable(configFile).ifPresent(f -> server.config = new ServerConfig(configFile));
+            if (configFile != null) {
+                server.config = new ServerConfig(configFile);
+            }
             return server;
         }
     }
@@ -102,7 +103,7 @@ public class JedisServer {
         channel.register(selector, channel.validOps());
         channel.bind(address);
         //
-        cmds = registerCmd();
+        commands = registerCmd();
         //
         Logger.info("server start at: {}:{} ...", this.host, this.port);
         while (selector.isOpen()) {
@@ -125,10 +126,6 @@ public class JedisServer {
         }
     }
 
-    public ServerConfig getConfig() {
-        return this.config;
-    }
-
     private void register(Selector selector, ServerSocketChannel serverSocketChannel) throws IOException {
         SocketChannel client = serverSocketChannel.accept();
         client.configureBlocking(false);
@@ -148,14 +145,15 @@ public class JedisServer {
             RedisValue parse = parser.parse(array, 0);
             List<RedisValue> args = (List<RedisValue>) parse.getValue();
             if (args.isEmpty()) throw new ProtocolParseException("none command data");
-            String command = args.remove(0).getValueAsString();
-            if (command.equals("CONFIG") && !args.isEmpty()) {
-                command += "-" + args.remove(0).getValueAsString();
+            String commandName = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
+            if (!commands.containsKey(commandName) && !args.isEmpty()) {
+                String subCommand = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
+                commandName = commandName + "-" + subCommand;
             }
-            Function<List<RedisValue>, Response> f = cmds.get(command.toUpperCase(Locale.ROOT));
-            Response response = Response.Error("unknown command " + command);
-            if (f != null) {
-                Optional.ofNullable(f.apply(args)).ifPresent(key::attach);
+            CommandWrapper command = commands.get(commandName);
+            Response response = Response.Error("unknown command " + commandName);
+            if (command != null) {
+                Optional.ofNullable(command.execute(args)).ifPresent(key::attach);
             } else {
                 key.attach(response);
             }
@@ -174,64 +172,43 @@ public class JedisServer {
         key.interestOps(SelectionKey.OP_READ);
     }
 
-    private Map<String, Function<List<RedisValue>, Response>> registerCmd() throws NoSuchMethodException,
+    private Map<String, CommandWrapper> registerCmd() throws NoSuchMethodException,
             InvocationTargetException, InstantiationException, IllegalAccessException {
         Reflections reflections = new Reflections("org.holicc.cmd");
-        Map<String, Function<List<RedisValue>, Response>> cmds = new HashMap<>();
+        Map<String, CommandWrapper> cmds = new HashMap<>();
         Set<Class<? extends JedisCommand>> commands = reflections.getSubTypesOf(JedisCommand.class);
         for (Class<? extends JedisCommand> aClass : commands) {
-            Constructor<? extends JedisCommand> constructor = aClass.getDeclaredConstructor();
-            JedisCommand jedisCommand = constructor.newInstance();
-            Set<Method> methods = ReflectionUtils.getMethods(aClass, ReflectionUtils.withAnnotation(Command.class));
+            JedisCommand instance = newInstance(aClass);
+            Set<Method> methods = Arrays.stream(aClass.getDeclaredMethods()).filter(method -> method.isAnnotationPresent(Command.class))
+                    .collect(Collectors.toSet());
             for (Method method : methods) {
                 Command annotation = method.getAnnotation(Command.class);
-                String command = annotation.subCommand().equals("") ?
-                        annotation.name() : String.join("-", annotation.name(), annotation.subCommand());
-                if (!cmds.containsKey(annotation.name())) {
-                    Function<List<RedisValue>, Response> f = (args) -> doCommand(jedisCommand, method, annotation, args);
-                    cmds.put(command, f);
+                String commandName = annotation.subCommand().equals("") ?
+                        annotation.name() : annotation.name() + "-" + annotation.subCommand();
+                if (!cmds.containsKey(commandName)) {
+                    cmds.put(commandName, new CommandWrapper(instance, method));
                 } else {
-                    Logger.warn("exists command [{}]", annotation.name());
+                    Logger.warn("command {} exists !", commandName);
                 }
             }
         }
         return cmds;
     }
 
-    private Response doCommand(JedisCommand jedisCommand, Method method, Command annotation, List<RedisValue> args) {
-        try {
-            if (annotation.minimumArgs() > args.size()) {
-                return Response.Error("wrong number args of [" + annotation.name() + "], see " + annotation.description());
-            }
-            List<RedisValue> params = args.subList(1, args.size());
-            Class<?>[] parameterTypes = method.getParameterTypes();
-            List<Object> param = new ArrayList<>();
-            for (Class<?> parameterType : parameterTypes) {
-                if (parameterType.equals(DataBase.class)) {
-                    param.add(db);
-                } else if (parameterType.equals(String.class)) {
-                    param.add(params.isEmpty() ? "" : params.remove(0).getValueAsString());
-                } else if (parameterType.equals(String[].class)) {
-                    param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
-                } else if (parameterType.equals(ServerConfig.class)) {
-                    param.add(config);
-                } else {
-                    param.add(params.isEmpty() ? null : params.remove(0).getValueAsString());
-                }
-            }
-            Object invoke = method.invoke(jedisCommand, param.toArray());
-            if (invoke instanceof String) {
-                return Response.BulkStringReply((String) invoke);
-            } else if (invoke instanceof Collection) {
-                return Response.ArrayReply((Collection<?>) invoke);
-            } else if (invoke instanceof Long || invoke instanceof Integer) {
-                return Response.IntReply((int) invoke);
+    private JedisCommand newInstance(Class<? extends JedisCommand> aClass) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        Constructor<? extends JedisCommand> constructor = (Constructor<? extends JedisCommand>) aClass.getDeclaredConstructors()[0];
+        Class<?>[] parameterTypes = constructor.getParameterTypes();
+        if (parameterTypes.length == 0) return constructor.newInstance();
+        List<Object> params = new ArrayList<>();
+        for (Class<?> parameterType : parameterTypes) {
+            if (parameterType.equals(DataBase.class)) {
+                params.add(db);
+            } else if (parameterType.equals(ServerConfig.class)) {
+                params.add(config);
             } else {
-                return Response.NullBulkResponse();
+                params.add(null);
             }
-        } catch (Exception e) {
-            return Response.Error(e.getMessage());
         }
+        return constructor.newInstance(params.toArray());
     }
-
 }

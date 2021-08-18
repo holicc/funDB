@@ -5,15 +5,16 @@ import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 
+import javax.xml.crypto.Data;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-public class KeysCommand implements JedisCommand {
+public record KeysCommand(DataBase db) implements JedisCommand {
 
 
     @Command(name = "TTL", minimumArgs = 1, description = "https://redis.io/commands/ttl")
-    public long ttl(DataBase db, String key) {
+    public long ttl(String key) {
         DataEntry entry = db.getEntry(key);
         if (entry == null) return -2;
         if (entry.getTtl() == null) return -1;
@@ -21,7 +22,7 @@ public class KeysCommand implements JedisCommand {
     }
 
     @Command(name = "KEYS", minimumArgs = 1, description = "https://redis.io/commands/keys")
-    public Set<String> keys(DataBase db, String pattern) {
+    public Set<String> keys(String pattern) {
         return db.keys(pattern);
     }
 }

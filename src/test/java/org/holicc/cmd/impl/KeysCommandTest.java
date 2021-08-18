@@ -16,8 +16,8 @@ import java.util.stream.Stream;
 
 class KeysCommandTest {
 
-    KeysCommand command = new KeysCommand();
     DataBase dataBase = new LocalDataBase();
+    KeysCommand command = new KeysCommand(dataBase);
 
     @BeforeEach
     void setTestData() {
@@ -34,7 +34,7 @@ class KeysCommandTest {
     @ParameterizedTest
     @MethodSource
     void keys(String key, Set<String> except) {
-        Set<String> response = command.keys(dataBase, key);
+        Set<String> response = command.keys(key);
         Assertions.assertEquals(response.size(), except.size());
         Assertions.assertTrue(response.containsAll(except));
     }
@@ -56,7 +56,7 @@ class KeysCommandTest {
     @ParameterizedTest
     @MethodSource
     void ttl(String key, long except) {
-        long ttl = command.ttl(dataBase, key);
+        long ttl = command.ttl(key);
         if (ttl > 0) {
             Assertions.assertTrue(ttl <= except);
         } else {

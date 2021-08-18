@@ -12,10 +12,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Locale;
 
-public class StringCommand implements JedisCommand {
+public record StringCommand(DataBase db) implements JedisCommand {
+
 
     @Command(name = "SET", minimumArgs = 2, description = "https://redis.io/commands/set")
-    public String set(DataBase db, String key, String value, String... options) throws CommandException {
+    public String set(String key, String value, String... options) throws CommandException {
         DataPolicy policy = DataPolicy.DEFAULT;
         LocalDateTime ttl = null;
         // parse Options
@@ -47,7 +48,7 @@ public class StringCommand implements JedisCommand {
     }
 
     @Command(name = "GET", minimumArgs = 1, description = "https://redis.io/commands/get")
-    public String get(DataBase db, String key) throws CommandException {
+    public String get(String key) throws CommandException {
         if (key == null || key.equals("")) throw new CommandException("empty key");
         DataEntry entry = db.getEntry(key);
         if (entry == null) return null;
