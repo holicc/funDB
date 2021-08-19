@@ -1,27 +1,27 @@
 package org.holicc.server;
 
-import org.holicc.db.PersistenceMode;
 import org.reflections.ReflectionUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ServerConfig {
 
-    private Map<String, String> properties;
-
     private String bind;
     private int port;
-
+    private boolean clusterEnabled;
     private boolean appendOnly;
     private String appendFileName;
+    private String dir;
 
     public ServerConfig() {
-
+        this.bind = "localhost";
+        this.port = 7891;
     }
 
     public static ServerConfig parse(String configFile) throws IOException, IllegalAccessException {
@@ -29,7 +29,7 @@ public class ServerConfig {
         Class<? extends ServerConfig> configClass = config.getClass();
         //
         Map<String, Field> fieldMap = ReflectionUtils.getAllFields(configClass).stream()
-                .collect(Collectors.toMap(Field::getName, field -> field));
+                .collect(Collectors.toMap(field -> field.getName().toLowerCase(Locale.ROOT), field -> field));
         //
         for (String line : Files.readAllLines(Path.of(configFile))) {
             if (line.startsWith("#")) continue;
@@ -39,25 +39,69 @@ public class ServerConfig {
                 for (int i = 1; i < kv.length; i++) {
                     raw.append(kv[i]);
                 }
-                if (fieldMap.containsKey(kv[0])) {
-                    Field field = fieldMap.get(kv[0]);
+                String key = kv[0].replaceAll("-", "").toLowerCase(Locale.ROOT);
+                if (fieldMap.containsKey(key)) {
+                    Field field = fieldMap.get(key);
                     Class<?> type = field.getType();
                     field.setAccessible(true);
                     if (type.equals(String.class)) {
-                        field.set(config, raw.toString());
+                        field.set(config, raw.toString().replaceAll("[\"]", ""));
                     } else if (type.equals(int.class)) {
                         field.set(config, Integer.parseInt(raw.toString()));
+                    } else if (type.equals(boolean.class)) {
+                        field.set(config, raw.toString().equalsIgnoreCase("yes"));
                     }
                 }
             }
         }
+        return config;
     }
 
-    public PersistenceMode getPersistenceMode() {
-        return persistenceMode;
+    public String getBind() {
+        return bind;
     }
 
-    public void setPersistenceMode(PersistenceMode persistenceMode) {
-        this.persistenceMode = persistenceMode;
+    public void setBind(String bind) {
+        this.bind = bind;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public boolean isClusterEnabled() {
+        return clusterEnabled;
+    }
+
+    public void setClusterEnabled(boolean clusterEnabled) {
+        this.clusterEnabled = clusterEnabled;
+    }
+
+    public boolean isAppendOnly() {
+        return appendOnly;
+    }
+
+    public void setAppendOnly(boolean appendOnly) {
+        this.appendOnly = appendOnly;
+    }
+
+    public String getAppendFileName() {
+        return appendFileName;
+    }
+
+    public void setAppendFileName(String appendFileName) {
+        this.appendFileName = appendFileName;
+    }
+
+    public String getDir() {
+        return dir;
+    }
+
+    public void setDir(String dir) {
+        this.dir = dir;
     }
 }

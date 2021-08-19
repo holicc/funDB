@@ -11,7 +11,7 @@ public class DefaultProtocolParser implements ProtocolParser {
      * words represent data range
      * eg: $3foo\r\n  => Word(2,4)
      */
-    record Word(int start, int end) {
+    public record Word(int start, int end) {
 
         /**
          * @return next position of start

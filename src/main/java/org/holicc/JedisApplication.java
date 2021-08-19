@@ -1,14 +1,14 @@
 package org.holicc;
 
-import org.holicc.db.LocalDataBase;
 import org.holicc.server.JedisServer;
+import org.holicc.server.ServerConfig;
 
 public class JedisApplication {
     public static void main(String[] args) throws Exception {
-        JedisServer.Builder builder = new JedisServer.Builder();
-
-        LocalDataBase database = new LocalDataBase();
-        builder.database(database).build()
-                .run();
+        if (args.length == 0) {
+            new JedisServer(new ServerConfig()).run();
+        } else {
+            new JedisServer(ServerConfig.parse(args[0])).run();
+        }
     }
 }

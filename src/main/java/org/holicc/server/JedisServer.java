@@ -4,6 +4,7 @@ import org.holicc.cmd.CommandWrapper;
 import org.holicc.cmd.JedisCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
+import org.holicc.db.LocalDataBase;
 import org.holicc.parser.DefaultProtocolParser;
 import org.holicc.parser.ProtocolParseException;
 import org.holicc.parser.ProtocolParser;
@@ -21,18 +22,18 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class JedisServer {
 
-    private int port;
-    private String host;
-    private DataBase db;
-    private ServerConfig config = new ServerConfig();
 
+    private DataBase db;
     private Map<String, CommandWrapper> commands;
 
+    private final ServerConfig config;
     private final ProtocolParser parser = new DefaultProtocolParser();
 
 
@@ -49,63 +50,32 @@ public class JedisServer {
                              ░""".indent(3);
 
 
-    private JedisServer() {
-    }
-
-    public static class Builder {
-
-        private DataBase db;
-        private String host;
-        private String configFile;
-        private int port;
-
-        public Builder database(DataBase db) {
-            this.db = db;
-            return this;
-        }
-
-        public Builder host(String host) {
-            this.host = host;
-            return this;
-        }
-
-        public Builder port(int port) {
-            this.port = port;
-            return this;
-        }
-
-        public Builder config(String file) {
-            this.configFile = file;
-            return this;
-        }
-
-        public JedisServer build() throws IOException {
-            JedisServer server = new JedisServer();
-            server.host = host == null || host.equals("") ? "localhost" : host;
-            server.port = port == 0 ? 7891 : port;
-            server.db = db;
-            if (configFile != null) {
-                server.config = new ServerConfig(configFile);
-            }
-            return server;
-        }
+    public JedisServer(ServerConfig config) {
+        this.config = config;
     }
 
 
     public void run() throws Exception {
         System.out.println(BANNER);
+        //  init database
+        initDatabase();
         //
+        commands = registerCmd();
+        //  load data
+        reloadDatabase();
+        // create tcp server
         Selector selector = Selector.open();
         //
-        InetSocketAddress address = new InetSocketAddress(host, port);
+        String bind = config.getBind();
+        int port = config.getPort();
+        InetSocketAddress address = new InetSocketAddress(bind, port);
         ServerSocketChannel channel = ServerSocketChannel.open();
         channel.configureBlocking(false);
         channel.register(selector, channel.validOps());
         channel.bind(address);
         //
-        commands = registerCmd();
         //
-        Logger.info("server start at: {}:{} ...", this.host, this.port);
+        Logger.info("server start at: {}:{} ...", bind, port);
         while (selector.isOpen()) {
             int selected = selector.select(key -> {
                 try {
@@ -126,6 +96,34 @@ public class JedisServer {
         }
     }
 
+    private void reloadDatabase() throws IOException, ProtocolParseException {
+        if (config.isAppendOnly()) {
+            String aofFile = config.getDir() + config.getAppendFileName();
+            Path path = Path.of(aofFile);
+            if (Files.notExists(path)) {
+                Logger.warn("can not find aof file in: {}", aofFile);
+                return;
+            }
+            byte[] bytes = Files.readAllBytes(path);
+            int pos = 0;
+            while (pos < bytes.length) {
+                RedisValue parse = parser.parse(bytes, pos);
+                doCommand(parse);
+                pos = parse.getWord().end();
+            }
+        }
+    }
+
+    private void initDatabase() {
+        if (config.isClusterEnabled()) {
+            // TODO cluster enable
+            Logger.debug("init cluster database");
+        } else {
+            this.db = new LocalDataBase();
+            Logger.debug("init local database");
+        }
+    }
+
     private void register(Selector selector, ServerSocketChannel serverSocketChannel) throws IOException {
         SocketChannel client = serverSocketChannel.accept();
         client.configureBlocking(false);
@@ -143,22 +141,25 @@ public class JedisServer {
         if (size > 0) {
             byte[] array = buffer.array();
             RedisValue parse = parser.parse(array, 0);
-            List<RedisValue> args = (List<RedisValue>) parse.getValue();
-            if (args.isEmpty()) throw new ProtocolParseException("none command data");
-            String commandName = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
-            if (!commands.containsKey(commandName) && !args.isEmpty()) {
-                String subCommand = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
-                commandName = commandName + "-" + subCommand;
-            }
-            CommandWrapper command = commands.get(commandName);
-            Response response = Response.Error("unknown command " + commandName);
-            if (command != null) {
-                Optional.ofNullable(command.execute(args)).ifPresent(key::attach);
-            } else {
-                key.attach(response);
-            }
+            key.attach(doCommand(parse));
         }
         key.interestOps(SelectionKey.OP_WRITE);
+    }
+
+    private Response doCommand(RedisValue redisValue) throws ProtocolParseException {
+        List<RedisValue> args = (List<RedisValue>) redisValue.getValue();
+        if (args.isEmpty()) throw new ProtocolParseException("none command data");
+        String commandName = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
+        if (!commands.containsKey(commandName) && !args.isEmpty()) {
+            String subCommand = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
+            commandName = commandName + "-" + subCommand;
+        }
+        CommandWrapper command = commands.get(commandName);
+        Response response = Response.Error("unknown command " + commandName);
+        if (command != null) {
+            response = command.execute(args);
+        }
+        return response;
     }
 
     private void onWrite(SelectionKey key) throws IOException {
