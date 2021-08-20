@@ -16,5 +16,5 @@ public @interface Command {
     String description() default "";
 
     int minimumArgs() default 0;
-
+    
 }

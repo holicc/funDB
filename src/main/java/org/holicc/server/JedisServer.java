@@ -31,11 +31,12 @@ public class JedisServer {
 
 
     private DataBase db;
+    private AofPersistence aofPersistence;
+    private RdbPersistence rdbPersistence;
     private Map<String, CommandWrapper> commands;
 
     private final ServerConfig config;
     private final ProtocolParser parser = new DefaultProtocolParser();
-
 
     private static final String BANNER = """
              ▄▄▄██▀▀▀▓█████ ▓█████▄  ██▓  ██████
@@ -54,13 +55,14 @@ public class JedisServer {
         this.config = config;
     }
 
-
     public void run() throws Exception {
         System.out.println(BANNER);
         //  init database
-        initDatabase();
-        //
+        db = initDatabase();
+        // register commands
         commands = registerCmd();
+        // init persistence
+        initPersistence();
         //  load data
         reloadDatabase();
         // create tcp server
@@ -74,10 +76,9 @@ public class JedisServer {
         channel.register(selector, channel.validOps());
         channel.bind(address);
         //
-        //
         Logger.info("server start at: {}:{} ...", bind, port);
         while (selector.isOpen()) {
-            int selected = selector.select(key -> {
+            selector.select(key -> {
                 try {
                     if (key.isAcceptable()) {
                         register(selector, channel);
@@ -92,8 +93,50 @@ public class JedisServer {
                     key.cancel();
                     Logger.error(e.getMessage());
                 }
-            }, 3 * 1000L);
+            }, 1000L);
+            // TODO
+            if (config.getAppendfsync().equals(ServerConfig.EVERY_SECOND_APPEND_FSYNC)) {
+                aofPersistence.fsync();
+            }
         }
+    }
+
+    public Response doCommand(RedisValue redisValue) throws ProtocolParseException {
+        List<RedisValue> args = (List<RedisValue>) redisValue.getValue();
+        if (args.isEmpty()) throw new ProtocolParseException("none command data");
+        String commandName = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
+        if (!commands.containsKey(commandName) && !args.isEmpty()) {
+            String subCommand = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
+            commandName = commandName + "-" + subCommand;
+        }
+        CommandWrapper command = commands.get(commandName);
+        if (command != null) {
+            return command.execute(args);
+        }
+        return null;
+    }
+
+    private void initPersistence() {
+        if (config.isAppendOnly()) {
+            aofPersistence = new AofPersistence(config);
+        }
+    }
+
+    private DataBase initDatabase() {
+        if (config.isClusterEnabled()) {
+            // TODO cluster enable
+            Logger.debug("init cluster database");
+            return null;
+        } else {
+            Logger.debug("init local database");
+            return new LocalDataBase();
+        }
+    }
+
+    private void register(Selector selector, ServerSocketChannel serverSocketChannel) throws IOException {
+        SocketChannel client = serverSocketChannel.accept();
+        client.configureBlocking(false);
+        client.register(selector, client.validOps());
     }
 
     private void reloadDatabase() throws IOException, ProtocolParseException {
@@ -114,22 +157,6 @@ public class JedisServer {
         }
     }
 
-    private void initDatabase() {
-        if (config.isClusterEnabled()) {
-            // TODO cluster enable
-            Logger.debug("init cluster database");
-        } else {
-            this.db = new LocalDataBase();
-            Logger.debug("init local database");
-        }
-    }
-
-    private void register(Selector selector, ServerSocketChannel serverSocketChannel) throws IOException {
-        SocketChannel client = serverSocketChannel.accept();
-        client.configureBlocking(false);
-        client.register(selector, client.validOps());
-    }
-
     private void onRead(SelectionKey key) throws IOException, ProtocolParseException {
         SocketChannel channel = (SocketChannel) key.channel();
         ByteBuffer buffer = ByteBuffer.allocate(512);
@@ -141,25 +168,15 @@ public class JedisServer {
         if (size > 0) {
             byte[] array = buffer.array();
             RedisValue parse = parser.parse(array, 0);
-            key.attach(doCommand(parse));
+            String command = parse.getCommand();
+            Response response = doCommand(parse);
+            if (response != null) {
+                persistence(array);
+            }
+            key.attach(Optional.ofNullable(response)
+                    .orElse(Response.Error("unknown command " + command)));
         }
         key.interestOps(SelectionKey.OP_WRITE);
-    }
-
-    private Response doCommand(RedisValue redisValue) throws ProtocolParseException {
-        List<RedisValue> args = (List<RedisValue>) redisValue.getValue();
-        if (args.isEmpty()) throw new ProtocolParseException("none command data");
-        String commandName = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
-        if (!commands.containsKey(commandName) && !args.isEmpty()) {
-            String subCommand = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
-            commandName = commandName + "-" + subCommand;
-        }
-        CommandWrapper command = commands.get(commandName);
-        Response response = Response.Error("unknown command " + commandName);
-        if (command != null) {
-            response = command.execute(args);
-        }
-        return response;
     }
 
     private void onWrite(SelectionKey key) throws IOException {
@@ -173,8 +190,16 @@ public class JedisServer {
         key.interestOps(SelectionKey.OP_READ);
     }
 
-    private Map<String, CommandWrapper> registerCmd() throws NoSuchMethodException,
-            InvocationTargetException, InstantiationException, IllegalAccessException {
+    private void persistence(byte[] array) throws IOException {
+        if (config.isAppendOnly()) {
+            aofPersistence.write(array);
+            if (config.getAppendfsync().equals(ServerConfig.ALWAYS_APPEND_FSYNC)) {
+                aofPersistence.fsync();
+            }
+        }
+    }
+
+    private Map<String, CommandWrapper> registerCmd() throws InvocationTargetException, InstantiationException, IllegalAccessException {
         Reflections reflections = new Reflections("org.holicc.cmd");
         Map<String, CommandWrapper> cmds = new HashMap<>();
         Set<Class<? extends JedisCommand>> commands = reflections.getSubTypesOf(JedisCommand.class);
@@ -196,7 +221,7 @@ public class JedisServer {
         return cmds;
     }
 
-    private JedisCommand newInstance(Class<? extends JedisCommand> aClass) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    private JedisCommand newInstance(Class<? extends JedisCommand> aClass) throws InvocationTargetException, InstantiationException, IllegalAccessException {
         Constructor<? extends JedisCommand> constructor = (Constructor<? extends JedisCommand>) aClass.getDeclaredConstructors()[0];
         Class<?>[] parameterTypes = constructor.getParameterTypes();
         if (parameterTypes.length == 0) return constructor.newInstance();

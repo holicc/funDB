@@ -12,11 +12,18 @@ import java.util.stream.Collectors;
 
 public class ServerConfig {
 
+    public static final String ALWAYS_APPEND_FSYNC = "always";
+    public static final String EVERY_SECOND_APPEND_FSYNC = "everysec";
+    public static final String NO_APPEND_FSYNC = "no";
+
     private String bind;
     private int port;
     private boolean clusterEnabled;
+
+    private String appendfsync;
     private boolean appendOnly;
     private String appendFileName;
+
     private String dir;
 
     public ServerConfig() {
@@ -103,5 +110,13 @@ public class ServerConfig {
 
     public void setDir(String dir) {
         this.dir = dir;
+    }
+
+    public String getAppendfsync() {
+        return appendfsync;
+    }
+
+    public void setAppendfsync(String appendfsync) {
+        this.appendfsync = appendfsync;
     }
 }
