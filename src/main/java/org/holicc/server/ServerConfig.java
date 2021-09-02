@@ -1,13 +1,17 @@
 package org.holicc.server;
 
 import org.reflections.ReflectionUtils;
+import org.tinylog.Logger;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class ServerConfig {
@@ -25,6 +29,8 @@ public class ServerConfig {
     private String appendFileName;
 
     private String dir;
+
+    private final Map<String, String> properties = new HashMap<>();
 
     public ServerConfig() {
         this.bind = "localhost";
@@ -48,15 +54,17 @@ public class ServerConfig {
                 }
                 String key = kv[0].replaceAll("-", "").toLowerCase(Locale.ROOT);
                 if (fieldMap.containsKey(key)) {
+                    String rawValue = raw.toString();
+                    config.properties.put(key, rawValue);
                     Field field = fieldMap.get(key);
                     Class<?> type = field.getType();
                     field.setAccessible(true);
                     if (type.equals(String.class)) {
-                        field.set(config, raw.toString().replaceAll("[\"]", ""));
+                        field.set(config, rawValue.replaceAll("[\"]", ""));
                     } else if (type.equals(int.class)) {
-                        field.set(config, Integer.parseInt(raw.toString()));
+                        field.set(config, Integer.parseInt(rawValue));
                     } else if (type.equals(boolean.class)) {
-                        field.set(config, raw.toString().equalsIgnoreCase("yes"));
+                        field.set(config, rawValue.equalsIgnoreCase("yes"));
                     }
                 }
             }
@@ -118,5 +126,21 @@ public class ServerConfig {
 
     public void setAppendfsync(String appendfsync) {
         this.appendfsync = appendfsync;
+    }
+
+    public String getProperty(String name) {
+        if (properties.isEmpty()) {
+            ReflectionUtils.getAllFields(ServerConfig.class).forEach(field -> {
+                try {
+                    if (!Modifier.isFinal(field.getModifiers())) {
+                        Optional.ofNullable(field.get(this))
+                                .ifPresent(v -> properties.put(field.getName(), v.toString()));
+                    }
+                } catch (IllegalAccessException e) {
+                    Logger.warn("get field value failed {}", e.getMessage());
+                }
+            });
+        }
+        return properties.get(name);
     }
 }

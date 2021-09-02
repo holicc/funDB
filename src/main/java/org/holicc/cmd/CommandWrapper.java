@@ -10,7 +10,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-public record CommandWrapper(JedisCommand instance,
+public record CommandWrapper(FunDBCommand instance,
+                             boolean persistence,
                              Method method) {
 
     public Response execute(List<RedisValue> params) {
@@ -27,8 +28,10 @@ public record CommandWrapper(JedisCommand instance,
                     param.add(params.isEmpty() ? "" : params.remove(0).getValueAsString());
                 } else if (parameterType.equals(String[].class)) {
                     param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
+                } else if (parameterType.equals(int.class)) {
+                    param.add(params.isEmpty() ? null : Integer.parseInt(params.remove(0).getValueAsString()));
                 } else {
-                    param.add(params.isEmpty() ? null : params.remove(0).getValueAsString());
+                    param.add(params.isEmpty() ? null : params.remove(0).getValue());
                 }
             }
             Object invoke = method.invoke(instance, param.toArray());

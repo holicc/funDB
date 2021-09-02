@@ -1,7 +1,7 @@
 package org.holicc.server;
 
 import org.holicc.cmd.CommandWrapper;
-import org.holicc.cmd.JedisCommand;
+import org.holicc.cmd.FunDBCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.db.LocalDataBase;
@@ -27,7 +27,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class JedisServer {
+public class FunDBServer {
 
 
     private DataBase db;
@@ -51,7 +51,7 @@ public class JedisServer {
                              ░""".indent(3);
 
 
-    public JedisServer(ServerConfig config) {
+    public FunDBServer(ServerConfig config) {
         this.config = config;
     }
 
@@ -95,13 +95,20 @@ public class JedisServer {
                 }
             }, 1000L);
             // TODO
-            if (config.getAppendfsync().equals(ServerConfig.EVERY_SECOND_APPEND_FSYNC)) {
-                aofPersistence.fsync();
-            }
+            Optional.ofNullable(config.getAppendfsync())
+                    .ifPresent(af -> {
+                        if (af.equals(ServerConfig.EVERY_SECOND_APPEND_FSYNC)) {
+                            try {
+                                aofPersistence.fsync();
+                            } catch (IOException e) {
+                                Logger.error("do file sync failed {}", e.getMessage());
+                            }
+                        }
+                    });
         }
     }
 
-    public Response doCommand(RedisValue redisValue) throws ProtocolParseException {
+    public Response doCommand(RedisValue redisValue, byte[] array) throws ProtocolParseException, IOException {
         List<RedisValue> args = (List<RedisValue>) redisValue.getValue();
         if (args.isEmpty()) throw new ProtocolParseException("none command data");
         String commandName = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
@@ -111,6 +118,9 @@ public class JedisServer {
         }
         CommandWrapper command = commands.get(commandName);
         if (command != null) {
+            if (command.persistence()) {
+                persistence(array);
+            }
             return command.execute(args);
         }
         return null;
@@ -151,7 +161,7 @@ public class JedisServer {
             int pos = 0;
             while (pos < bytes.length) {
                 RedisValue parse = parser.parse(bytes, pos);
-                doCommand(parse);
+                doCommand(parse, bytes);
                 pos = parse.getWord().end();
             }
         }
@@ -169,10 +179,7 @@ public class JedisServer {
             byte[] array = buffer.array();
             RedisValue parse = parser.parse(array, 0);
             String command = parse.getCommand();
-            Response response = doCommand(parse);
-            if (response != null) {
-                persistence(array);
-            }
+            Response response = doCommand(parse, array);
             key.attach(Optional.ofNullable(response)
                     .orElse(Response.Error("unknown command " + command)));
         }
@@ -202,9 +209,9 @@ public class JedisServer {
     private Map<String, CommandWrapper> registerCmd() throws InvocationTargetException, InstantiationException, IllegalAccessException {
         Reflections reflections = new Reflections("org.holicc.cmd");
         Map<String, CommandWrapper> cmds = new HashMap<>();
-        Set<Class<? extends JedisCommand>> commands = reflections.getSubTypesOf(JedisCommand.class);
-        for (Class<? extends JedisCommand> aClass : commands) {
-            JedisCommand instance = newInstance(aClass);
+        Set<Class<? extends FunDBCommand>> commands = reflections.getSubTypesOf(FunDBCommand.class);
+        for (Class<? extends FunDBCommand> aClass : commands) {
+            FunDBCommand instance = newInstance(aClass);
             Set<Method> methods = Arrays.stream(aClass.getDeclaredMethods()).filter(method -> method.isAnnotationPresent(Command.class))
                     .collect(Collectors.toSet());
             for (Method method : methods) {
@@ -212,7 +219,7 @@ public class JedisServer {
                 String commandName = annotation.subCommand().equals("") ?
                         annotation.name() : annotation.name() + "-" + annotation.subCommand();
                 if (!cmds.containsKey(commandName)) {
-                    cmds.put(commandName, new CommandWrapper(instance, method));
+                    cmds.put(commandName, new CommandWrapper(instance, annotation.persistence(), method));
                 } else {
                     Logger.warn("command {} exists !", commandName);
                 }
@@ -221,8 +228,8 @@ public class JedisServer {
         return cmds;
     }
 
-    private JedisCommand newInstance(Class<? extends JedisCommand> aClass) throws InvocationTargetException, InstantiationException, IllegalAccessException {
-        Constructor<? extends JedisCommand> constructor = (Constructor<? extends JedisCommand>) aClass.getDeclaredConstructors()[0];
+    private FunDBCommand newInstance(Class<? extends FunDBCommand> aClass) throws InvocationTargetException, InstantiationException, IllegalAccessException {
+        Constructor<? extends FunDBCommand> constructor = (Constructor<? extends FunDBCommand>) aClass.getDeclaredConstructors()[0];
         Class<?>[] parameterTypes = constructor.getParameterTypes();
         if (parameterTypes.length == 0) return constructor.newInstance();
         List<Object> params = new ArrayList<>();

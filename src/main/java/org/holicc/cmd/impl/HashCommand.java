@@ -1,17 +1,16 @@
 package org.holicc.cmd.impl;
 
-import org.holicc.cmd.JedisCommand;
+import org.holicc.cmd.FunDBCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 
-import javax.xml.crypto.Data;
 import java.util.HashMap;
 import java.util.Map;
 
-public record HashCommand(DataBase db) implements JedisCommand {
+public record HashCommand(DataBase db) implements FunDBCommand {
 
-    @Command(name = "HSET", minimumArgs = 3, description = "https://redis.io/commands/hset")
+    @Command(name = "HSET", persistence = true, minimumArgs = 3, description = "https://redis.io/commands/hset")
     public int hset(String key, String field, Object value) {
         DataEntry entry = db.getEntry(key);
         DataEntry fieldsEntry = new DataEntry(field, value);

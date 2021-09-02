@@ -1,17 +1,15 @@
 package org.holicc.cmd.impl;
 
-import org.holicc.cmd.JedisCommand;
+import org.holicc.cmd.FunDBCommand;
 import org.holicc.cmd.annotation.Command;
-import org.holicc.db.DataBase;
-import org.holicc.server.JedisServer;
 import org.holicc.server.ServerConfig;
 
-public record ConfigCommand(ServerConfig config) implements JedisCommand {
+public record ConfigCommand(ServerConfig config) implements FunDBCommand {
 
 
     @Command(name = "CONFIG", subCommand = "GET", minimumArgs = 1, description = "https://redis.io/commands/config-get")
     public String configGet(String name) {
-        return "";
+        return config.getProperty(name);
     }
 
     @Command(name = "CONFIG", subCommand = "SET", minimumArgs = 2, description = "https://redis.io/commands/config-set")

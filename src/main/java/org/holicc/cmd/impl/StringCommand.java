@@ -1,6 +1,6 @@
 package org.holicc.cmd.impl;
 
-import org.holicc.cmd.JedisCommand;
+import org.holicc.cmd.FunDBCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.cmd.exception.CommandException;
 import org.holicc.db.DataBase;
@@ -12,10 +12,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Locale;
 
-public record StringCommand(DataBase db) implements JedisCommand {
+public record StringCommand(DataBase db) implements FunDBCommand {
 
 
-    @Command(name = "SET", minimumArgs = 2, description = "https://redis.io/commands/set")
+    @Command(name = "SET", persistence = true, minimumArgs = 2, description = "https://redis.io/commands/set")
     public String set(String key, String value, String... options) throws CommandException {
         DataPolicy policy = DataPolicy.DEFAULT;
         LocalDateTime ttl = null;

@@ -15,6 +15,7 @@ public @interface Command {
 
     String description() default "";
 
-    int minimumArgs() default 0;
-    
+    boolean persistence() default false;
+
+    int minimumArgs() default 1;
 }

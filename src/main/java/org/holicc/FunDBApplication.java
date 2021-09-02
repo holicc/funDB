@@ -1,14 +1,14 @@
 package org.holicc;
 
-import org.holicc.server.JedisServer;
+import org.holicc.server.FunDBServer;
 import org.holicc.server.ServerConfig;
 
-public class JedisApplication {
+public class FunDBApplication {
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            new JedisServer(new ServerConfig()).run();
+            new FunDBServer(new ServerConfig()).run();
         } else {
-            new JedisServer(ServerConfig.parse(args[0])).run();
+            new FunDBServer(ServerConfig.parse(args[0])).run();
         }
     }
 }
