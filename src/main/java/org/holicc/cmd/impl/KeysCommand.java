@@ -23,4 +23,14 @@ public record KeysCommand(DataBase db) implements FunDBCommand {
     public Set<String> keys(String pattern) {
         return db.keys(pattern);
     }
+
+    @Command(name = "EXISTS", description = "https://redis.io/commands/exists")
+    public int exists(String... keys) {
+        int count = 0;
+        for (String key : keys) {
+            if (db.getEntry(key) != null) count++;
+        }
+        return count;
+    }
+
 }

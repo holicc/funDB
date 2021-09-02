@@ -32,6 +32,11 @@ public class LocalDataBase implements DataBase {
     }
 
     @Override
+    public void delEntry(String key) {
+        entryMap.remove(key);
+    }
+
+    @Override
     public Set<String> keys(String pattern) {
         if (pattern == null || pattern.equals("")) return Set.of();
         Wildcard wildcard = Wildcard.compile(pattern);

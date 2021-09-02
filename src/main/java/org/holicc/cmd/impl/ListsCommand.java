@@ -60,6 +60,8 @@ public record ListsCommand(DataBase db) implements FunDBCommand {
         while (count-- > 0 && !list.isEmpty()) {
             r.add(list.pollLast());
         }
+        // should remove the key if lists is empty
+        if (list.isEmpty()) db.delEntry(key);
         return r;
     }
 }
