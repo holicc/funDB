@@ -132,6 +132,7 @@ public class ServerConfig {
         if (properties.isEmpty()) {
             ReflectionUtils.getAllFields(ServerConfig.class).forEach(field -> {
                 try {
+                    System.out.println(field.getName());
                     if (!Modifier.isFinal(field.getModifiers())) {
                         Optional.ofNullable(field.get(this))
                                 .ifPresent(v -> properties.put(field.getName(), v.toString()));

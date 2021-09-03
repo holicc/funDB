@@ -35,7 +35,10 @@ public record CommandWrapper(FunDBCommand instance,
                 }
             }
             Object invoke = method.invoke(instance, param.toArray());
-            if (invoke instanceof String) {
+            // no reply eg:SUBSCRIBE
+            if (method.getReturnType().equals(Void.TYPE)) {
+                return null;
+            } else if (invoke instanceof String) {
                 return Response.BulkStringReply((String) invoke);
             } else if (invoke instanceof Collection) {
                 return Response.ArrayReply((Collection<?>) invoke);

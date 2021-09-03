@@ -37,6 +37,7 @@ public class FunDBServer {
 
     private final ServerConfig config;
     private final ProtocolParser parser = new DefaultProtocolParser();
+    private final PubSubServer pubSubServer = new PubSubServer();
 
     private static final String BANNER = """
              ▄▄▄██▀▀▀▓█████ ▓█████▄  ██▓  ██████
@@ -123,7 +124,7 @@ public class FunDBServer {
             }
             return command.execute(args);
         }
-        return null;
+        return Response.Error("unknown command [" + commandName + "]");
     }
 
     private void initPersistence() {
@@ -178,10 +179,7 @@ public class FunDBServer {
         if (size > 0) {
             byte[] array = buffer.array();
             RedisValue parse = parser.parse(array, 0);
-            String command = parse.getCommand();
-            Response response = doCommand(parse, array);
-            key.attach(Optional.ofNullable(response)
-                    .orElse(Response.Error("unknown command " + command)));
+            key.attach(doCommand(parse, array));
         }
         key.interestOps(SelectionKey.OP_WRITE);
     }
@@ -238,8 +236,8 @@ public class FunDBServer {
                 params.add(db);
             } else if (parameterType.equals(ServerConfig.class)) {
                 params.add(config);
-            } else {
-                params.add(null);
+            } else if (parameterType.equals(PubSubServer.class)) {
+                params.add(pubSubServer);
             }
         }
         return constructor.newInstance(params.toArray());
