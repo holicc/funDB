@@ -38,6 +38,7 @@ public class FunDBServer {
     private final ServerConfig config;
     private final ProtocolParser parser = new DefaultProtocolParser();
     private final PubSubServer pubSubServer = new PubSubServer();
+    private final Arguments arguments = new Arguments();
 
     private static final String BANNER = """
              ▄▄▄██▀▀▀▓█████ ▓█████▄  ██▓  ██████
@@ -113,6 +114,7 @@ public class FunDBServer {
         List<RedisValue> args = (List<RedisValue>) redisValue.getValue();
         if (args.isEmpty()) throw new ProtocolParseException("none command data");
         String commandName = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
+        // try with subcommand
         if (!commands.containsKey(commandName) && !args.isEmpty()) {
             String subCommand = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
             commandName = commandName + "-" + subCommand;
@@ -122,7 +124,7 @@ public class FunDBServer {
             if (command.persistence()) {
                 persistence(array);
             }
-            return command.execute(args);
+            return command.execute(args, arguments);
         }
         return Response.Error("unknown command [" + commandName + "]");
     }
@@ -179,7 +181,12 @@ public class FunDBServer {
         if (size > 0) {
             byte[] array = buffer.array();
             RedisValue parse = parser.parse(array, 0);
+            // put socket as dynamic arg
+            arguments.put(SocketChannel.class, channel);
+            // do command and attach response
             key.attach(doCommand(parse, array));
+            // make sure remove unused socket arg
+            arguments.get(SocketChannel.class);
         }
         key.interestOps(SelectionKey.OP_WRITE);
     }
