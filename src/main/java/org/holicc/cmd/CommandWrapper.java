@@ -40,6 +40,8 @@ public record CommandWrapper(FunDBCommand instance,
                     param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
                 } else if (parameterType.equals(int.class)) {
                     param.add(params.isEmpty() ? null : Integer.parseInt(params.remove(0).getValueAsString()));
+                } else if (parameterType.isAssignableFrom(From.class)) {
+                    param.add()
                 } else {
                     param.add(params.isEmpty() ? null : params.remove(0).getValue());
                 }
