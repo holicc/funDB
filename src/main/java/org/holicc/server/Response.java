@@ -40,7 +40,7 @@ public record Response(String msg) {
         return new Response("*0" + CRLF);
     }
 
-    public static Response IntReply(int val) {
+    public static Response IntReply(long val) {
         return new Response(encodeInt(val));
     }
 
@@ -52,7 +52,7 @@ public record Response(String msg) {
         return "$" + data.length() + CRLF + data + CRLF;
     }
 
-    private static String encodeInt(int i) {
+    private static String encodeInt(long i) {
         return ":" + i + CRLF;
     }
 }

@@ -23,6 +23,7 @@ public class LocalDataBase implements DataBase {
         if (!entryMap.containsKey(key)) return null;
         DataEntry entry = entryMap.get(key);
         LocalDateTime ttl = entry.getTtl();
+        // check expire
         if (ttl == null || LocalDateTime.now().isBefore(ttl)) {
             return entry;
         } else {

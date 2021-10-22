@@ -41,7 +41,8 @@ public record CommandWrapper(FunDBCommand instance,
                 } else if (parameterType.equals(int.class)) {
                     param.add(params.isEmpty() ? null : Integer.parseInt(params.remove(0).getValueAsString()));
                 } else if (parameterType.isAssignableFrom(From.class)) {
-                    param.add()
+                    // TODO
+//                    param.add();
                 } else {
                     param.add(params.isEmpty() ? null : params.remove(0).getValue());
                 }
@@ -54,8 +55,10 @@ public record CommandWrapper(FunDBCommand instance,
                 return Response.BulkStringReply((String) invoke);
             } else if (invoke instanceof Collection) {
                 return Response.ArrayReply((Collection<?>) invoke);
-            } else if (invoke instanceof Long || invoke instanceof Integer) {
+            } else if (invoke instanceof Integer) {
                 return Response.IntReply((int) invoke);
+            } else if (invoke instanceof Long) {
+                return Response.IntReply((long) invoke);
             } else {
                 return Response.NullBulkResponse();
             }

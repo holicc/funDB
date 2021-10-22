@@ -33,4 +33,12 @@ public record KeysCommand(DataBase db) implements FunDBCommand {
         return count;
     }
 
+    @Command(name = "EXPIRE", description = "https://redis.io/commands/expire")
+    public int expire(String key, int second, String... options) {
+        DataEntry entry = db.getEntry(key);
+        if (entry == null) return 0;
+        entry.setTtl(LocalDateTime.now().plusSeconds(second));
+        return 1;
+    }
+
 }
