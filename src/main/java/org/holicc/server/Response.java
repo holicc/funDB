@@ -2,6 +2,7 @@ package org.holicc.server;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.Objects;
 
 public record Response(String msg) {
 
@@ -12,6 +13,7 @@ public record Response(String msg) {
     }
 
     public static Response BulkStringReply(String data) {
+        if (Objects.isNull(data)) return EmptyArrayReply();
         return new Response("$" + data.length() + CRLF + data + CRLF);
     }
 

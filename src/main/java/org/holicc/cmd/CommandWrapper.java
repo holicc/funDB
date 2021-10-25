@@ -2,9 +2,11 @@ package org.holicc.cmd;
 
 import org.holicc.cmd.annotation.Command;
 import org.holicc.cmd.annotation.Inject;
+import org.holicc.cmd.exception.CommandException;
 import org.holicc.parser.RedisValue;
 import org.holicc.server.Arguments;
 import org.holicc.server.Response;
+import org.reflections.ReflectionUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -47,22 +49,25 @@ public record CommandWrapper(FunDBCommand instance,
                     param.add(params.isEmpty() ? null : params.remove(0).getValue());
                 }
             }
+            Class<?> returnType = method.getReturnType();
             Object invoke = method.invoke(instance, param.toArray());
             // no reply eg:SUBSCRIBE
-            if (method.getReturnType().equals(Void.TYPE)) {
+            if (returnType.equals(Void.TYPE)) {
                 return null;
-            } else if (invoke instanceof String) {
+            } else if (returnType.isAssignableFrom(String.class)) {
                 return Response.BulkStringReply((String) invoke);
-            } else if (invoke instanceof Collection) {
+            } else if (returnType.isAssignableFrom(Collection.class)) {
                 return Response.ArrayReply((Collection<?>) invoke);
-            } else if (invoke instanceof Integer) {
+            } else if (returnType.equals(int.class) || returnType.equals(Integer.class)) {
                 return Response.IntReply((int) invoke);
-            } else if (invoke instanceof Long) {
+            } else if (returnType.equals(long.class) || returnType.equals(Long.class)) {
                 return Response.IntReply((long) invoke);
             } else {
                 return Response.NullBulkResponse();
             }
-        } catch (IllegalAccessException | InvocationTargetException e) {
+        } catch (InvocationTargetException e) {
+            return Response.Error(e.getTargetException().getMessage());
+        } catch (IllegalAccessException e) {
             return Response.Error(e.getMessage());
         }
     }

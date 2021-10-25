@@ -132,7 +132,6 @@ public class ServerConfig {
         if (properties.isEmpty()) {
             ReflectionUtils.getAllFields(ServerConfig.class).forEach(field -> {
                 try {
-                    System.out.println(field.getName());
                     if (!Modifier.isFinal(field.getModifiers())) {
                         Optional.ofNullable(field.get(this))
                                 .ifPresent(v -> properties.put(field.getName(), v.toString()));
@@ -143,5 +142,10 @@ public class ServerConfig {
             });
         }
         return properties.get(name);
+    }
+
+    public boolean setProperty(String name, String... args) {
+        properties.put(name, String.join(" ", args));
+        return false;
     }
 }
