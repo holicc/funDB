@@ -1,8 +1,11 @@
-package org.holicc.parser;
+package org.holicc.protocol;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.openjdk.jmh.Main;
+import org.openjdk.jmh.annotations.Benchmark;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -11,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class DefaultProtocolParserTest {
 
     private final ProtocolParser parser = new DefaultProtocolParser();
-
 
     @ParameterizedTest
     @ValueSource(strings = {"+OK\r\n", "+PONG\r\n"})
@@ -49,7 +51,9 @@ class DefaultProtocolParserTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"*3\r\n$3\r\nfoo\r\n$3\r\nbar\r\n:1\r\n",})
+    @ValueSource(strings = {
+            "*3\r\n$3\r\nfoo\r\n$3\r\nbar\r\n:1\r\n"
+    })
     void testParseArray(String req) throws ProtocolParseException {
 
         RedisValue<List<RedisValue>> parse = parser.parse(req.getBytes(StandardCharsets.UTF_8), 0);

@@ -1,4 +1,4 @@
-package org.holicc.parser;
+package org.holicc.protocol;
 
 import java.util.ArrayList;
 import java.util.Arrays;

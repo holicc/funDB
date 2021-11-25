@@ -34,7 +34,7 @@ public class ServerConfig {
 
     public ServerConfig() {
         this.bind = "localhost";
-        this.port = 7891;
+        this.port = 6379;
     }
 
     public static ServerConfig parse(String configFile) throws IOException, IllegalAccessException {

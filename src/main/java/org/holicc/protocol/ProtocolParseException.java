@@ -1,4 +1,4 @@
-package org.holicc.parser;
+package org.holicc.protocol;
 
 public class ProtocolParseException extends Exception {
 

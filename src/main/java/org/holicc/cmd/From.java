@@ -1,6 +1,6 @@
 package org.holicc.cmd;
 
-import org.holicc.parser.RedisValue;
+import org.holicc.protocol.RedisValue;
 
 import java.util.List;
 

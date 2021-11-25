@@ -5,10 +5,10 @@ import org.holicc.cmd.FunDBCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.db.LocalDataBase;
-import org.holicc.parser.DefaultProtocolParser;
-import org.holicc.parser.ProtocolParseException;
-import org.holicc.parser.ProtocolParser;
-import org.holicc.parser.RedisValue;
+import org.holicc.protocol.DefaultProtocolParser;
+import org.holicc.protocol.ProtocolParseException;
+import org.holicc.protocol.ProtocolParser;
+import org.holicc.protocol.RedisValue;
 import org.reflections.Reflections;
 import org.tinylog.Logger;
 
@@ -180,6 +180,7 @@ public class FunDBServer {
         }
         if (size > 0) {
             byte[] array = buffer.array();
+            System.out.println(new String(array));
             RedisValue parse = parser.parse(array, 0);
             // put socket as dynamic arg
             arguments.put(SocketChannel.class, channel);
