@@ -18,11 +18,11 @@ public record CommandWrapper(FunDBCommand instance,
                              boolean persistence,
                              Method method) {
 
-    public Response execute(List<RedisValue> params, Arguments pool) {
+    public Response execute(RedisValue redisValue, Arguments pool) {
         try {
             if (method == null) return Response.Error("command not found");
             Command annotation = method.getAnnotation(Command.class);
-            if (annotation.minimumArgs() > params.size()) {
+            if (annotation.minimumArgs() > redisValue.size()) {
                 return Response.Error("wrong number args of [" + annotation.name() + "], see " + annotation.description());
             }
             Parameter[] parameters = method.getParameters();
@@ -30,22 +30,14 @@ public record CommandWrapper(FunDBCommand instance,
             for (Parameter parameter : parameters) {
                 Class<?> parameterType = parameter.getType();
                 Inject inject = parameter.getAnnotation(Inject.class);
-                if (Objects.nonNull(inject)) {           // more dynamic args, eg: SocketChannel
+                // more dynamic args, eg: SocketChannel
+                if (Objects.nonNull(inject)) {
                     Object o = pool.get(parameterType);
-                    if (inject.required() && Objects.isNull(o)) throw new NullPointerException("inject value is null");
+                    if (inject.required() && Objects.isNull(o))
+                        throw new NullPointerException("value is required");
                     param.add(o);
-                } else if (parameterType.equals(String.class)) {                 // get value from redis client
-                    param.add(params.isEmpty() ? "" : params.remove(0).getValueAsString());
-                } else if (parameterType.equals(String[].class)) {
-                    param.add(params.isEmpty() ? null : params.stream().map(RedisValue::getValueAsString).toArray(String[]::new));
-                } else if (parameterType.equals(int.class)) {
-                    param.add(params.isEmpty() ? null : Integer.parseInt(params.remove(0).getValueAsString()));
-                } else if (parameterType.isAssignableFrom(From.class)) {
-                    // TODO
-//                    param.add();
-                } else {
-                    param.add(params.isEmpty() ? null : params.remove(0).getValue());
                 }
+                param.add(redisValue.into(parameterType));
             }
             Class<?> returnType = method.getReturnType();
             Object invoke = method.invoke(instance, param.toArray());

@@ -12,7 +12,9 @@ import org.holicc.protocol.RedisValue;
 import org.reflections.Reflections;
 import org.tinylog.Logger;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -111,20 +113,14 @@ public class FunDBServer {
     }
 
     public Response doCommand(RedisValue redisValue, byte[] array) throws ProtocolParseException, IOException {
-        List<RedisValue> args = (List<RedisValue>) redisValue.getValue();
-        if (args.isEmpty()) throw new ProtocolParseException("none command data");
-        String commandName = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
-        // try with subcommand
-        if (!commands.containsKey(commandName) && !args.isEmpty()) {
-            String subCommand = args.remove(0).getValueAsString().toUpperCase(Locale.ROOT);
-            commandName = commandName + "-" + subCommand;
-        }
+        if (redisValue.isEmpty()) throw new ProtocolParseException("none command data");
+        String commandName = redisValue.command().toUpperCase(Locale.ROOT);
         CommandWrapper command = commands.get(commandName);
         if (command != null) {
             if (command.persistence()) {
                 persistence(array);
             }
-            return command.execute(args, arguments);
+            return command.execute(redisValue, arguments);
         }
         return Response.Error("unknown command [" + commandName + "]");
     }
@@ -163,33 +159,25 @@ public class FunDBServer {
             byte[] bytes = Files.readAllBytes(path);
             int pos = 0;
             while (pos < bytes.length) {
-                RedisValue parse = parser.parse(bytes, pos);
+                RedisValue parse = parser.parse(bytes);
                 doCommand(parse, bytes);
-                pos = parse.getWord().end();
             }
         }
     }
 
     private void onRead(SelectionKey key) throws IOException, ProtocolParseException {
         SocketChannel channel = (SocketChannel) key.channel();
-        ByteBuffer buffer = ByteBuffer.allocate(512);
-        int size = channel.read(buffer);
-        // peer socket closed
-        if (size == -1) {
-            throw new IOException("peer socket closed");
-        }
-        if (size > 0) {
-            byte[] array = buffer.array();
-            System.out.println(new String(array));
-            RedisValue parse = parser.parse(array, 0);
+        try (InputStream inputStream = channel.socket().getInputStream()) {
+            byte[] bytes = inputStream.readAllBytes();
+            RedisValue redisValue = parser.parse(bytes);
             // put socket as dynamic arg
             arguments.put(SocketChannel.class, channel);
             // do command and attach response
-            key.attach(doCommand(parse, array));
+            key.attach(doCommand(redisValue, bytes));
             // make sure remove unused socket arg
             arguments.get(SocketChannel.class);
+            key.interestOps(SelectionKey.OP_WRITE);
         }
-        key.interestOps(SelectionKey.OP_WRITE);
     }
 
     private void onWrite(SelectionKey key) throws IOException {

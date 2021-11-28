@@ -2,58 +2,28 @@ package org.holicc.protocol;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-public class RedisValue<T> {
+public record RedisValue(
+        String command,
+        String key,
+        Object value,
+        Optional<String[]> options
+) {
 
-    private DefaultProtocolParser.Word word;
-
-    private T value;
-
-    private RedisValue() {
+    public <T> T into(Class<?> parameterType) {
+        return (T) value;
     }
 
-    public RedisValue(DefaultProtocolParser.Word word, T value) {
-        this.word = word;
-        this.value = value;
-    }
-
-    public static <T> RedisValue<T> nullValue() {
-        return new RedisValue<>();
-    }
-
-    public DefaultProtocolParser.Word getWord() {
-        return word;
-    }
-
-    public T getValue() {
-        return Objects.nonNull(value) ? value : null;
-    }
-
-    public String getValueAsString() {
-        if (value instanceof byte[]) return new String((byte[]) value);
-        return value.toString();
-    }
-
-    public String getCommand() {
-        if (value instanceof byte[]) {
-            return new String((byte[]) value);
-        }
+    public int size() {
         if (value instanceof List) {
-            return ((List<RedisValue>) value).get(0).getCommand();
+            return ((List<?>) value).size();
+        } else {
+            return Objects.isNull(value) ? 0 : 1;
         }
-        return value.toString();
     }
 
-
-    @Override
-    public String toString() {
-        return "RedisValue{" +
-                "word=" + word +
-                ", value=" + value +
-                '}';
-    }
-
-    public Class<?> getType() {
-        return value.getClass();
+    public boolean isEmpty() {
+        return command == null;
     }
 }
