@@ -7,20 +7,18 @@ import java.util.Optional;
 public record RedisValue(
         String command,
         String key,
-        Object value,
+        Optional<Object> value,
         Optional<String[]> options
 ) {
 
-    public <T> T into(Class<?> parameterType) {
-        return (T) value;
-    }
-
     public int size() {
-        if (value instanceof List) {
-            return ((List<?>) value).size();
-        } else {
-            return Objects.isNull(value) ? 0 : 1;
-        }
+        int addKey  = Objects.isNull(key)?0:1;
+        return value.map(v -> {
+            if (v instanceof List) {
+                return ((List<?>) v).size();
+            }
+            return 0;
+        }).orElse(0)+addKey;
     }
 
     public boolean isEmpty() {

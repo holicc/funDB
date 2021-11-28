@@ -12,7 +12,7 @@ public interface ProtocolParser {
     char ERROR_VALUE = '-';
     char ARRAY_VALUE = '*';
 
-    RedisValue EMPTY_VALUE = new RedisValue("", "", "", Optional.empty());
+    RedisValue EMPTY_VALUE = new RedisValue("", "", Optional.empty(), Optional.empty());
 
     RedisValue parse(byte[] buffer) throws ProtocolParseException;
 

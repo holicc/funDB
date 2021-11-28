@@ -1,7 +1,6 @@
 package org.holicc.cmd;
 
-import org.holicc.cmd.annotation.Command;
-import org.holicc.cmd.annotation.Inject;
+import org.holicc.cmd.annotation.*;
 import org.holicc.protocol.RedisValue;
 import org.holicc.server.Arguments;
 import org.holicc.server.Response;
@@ -26,21 +25,28 @@ public record CommandWrapper(FunDBCommand instance,
                 return Response.Error("wrong number args of [" + annotation.name() + "], see " + annotation.description());
             }
             Parameter[] parameters = method.getParameters();
-            List<Object> param = new ArrayList<>();
+            List<Object> args = new ArrayList<>();
             for (Parameter parameter : parameters) {
                 Class<?> parameterType = parameter.getType();
-                Inject inject = parameter.getAnnotation(Inject.class);
-                // more dynamic args, eg: SocketChannel
-                if (Objects.nonNull(inject)) {
-                    Object o = pool.get(parameterType);
-                    if (inject.required() && Objects.isNull(o))
-                        throw new NullPointerException("value is required");
-                    param.add(o);
+                if (parameter.isAnnotationPresent(Key.class)) {
+                    args.add(redisValue.key());
+                } else if (parameter.isAnnotationPresent(Value.class)) {
+                    redisValue.value().ifPresent(args::add);
+                } else if (parameter.isAnnotationPresent(Options.class)) {
+                    redisValue.options().ifPresent(args::add);
+                } else {
+                    Inject inject = parameter.getAnnotation(Inject.class);
+                    // more dynamic args, eg: SocketChannel
+                    if (Objects.nonNull(inject)) {
+                        Object o = pool.get(parameterType);
+                        if (inject.required() && Objects.isNull(o))
+                            throw new NullPointerException("value is required");
+                        args.add(o);
+                    }
                 }
-                param.add(redisValue.into(parameterType));
             }
             Class<?> returnType = method.getReturnType();
-            Object invoke = method.invoke(instance, param.toArray());
+            Object invoke = method.invoke(instance, args.toArray());
             // no reply eg:SUBSCRIBE
             if (returnType.equals(Void.TYPE)) {
                 return null;

@@ -19,6 +19,8 @@ public class DefaultProtocolParser implements ProtocolParser {
         this.buffer = buffer;
         this.cur = 0;
         this.limit = buffer.length;
+        this.key = null;
+        this.command = null;
         return parse();
     }
 
@@ -35,27 +37,27 @@ public class DefaultProtocolParser implements ProtocolParser {
         // parse options
         String[] options = options();
 
-        return new RedisValue(command, key, value, Optional.ofNullable(options));
+        return new RedisValue(command, key, Optional.ofNullable(value), Optional.ofNullable(options));
 
     }
 
-    private String strValue() throws ProtocolParseException {
+    private String strValue() {
         return readUntilCRLF().map(String::new).orElse("");
     }
 
-    private String error() throws ProtocolParseException {
+    private String error() {
         return readUntilCRLF().map(String::new).orElse("");
     }
 
-    private String bulkStrValue() throws ProtocolParseException {
+    private String bulkStrValue() {
         long size = intValue();
         byte[] bytes = new byte[(int) size];
         System.arraycopy(buffer, cur, bytes, 0, (int) size);
-        cur += size+2;
+        cur += size + 2;
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
-    private long intValue() throws ProtocolParseException {
+    private long intValue() {
         return readUntilCRLF().map(bytes -> {
             final boolean isNeg = bytes[0] == '-';
             long value = 0;
@@ -73,9 +75,9 @@ public class DefaultProtocolParser implements ProtocolParser {
             for (int i = 0; i < len; i++) {
                 RedisValue value = parse();
                 if (this.command == null) {
-                    this.command = value.into(String.class);
+                    this.command = value.value().toString();
                 } else if (this.key == null) {
-                    this.key = value.into(String.class);
+                    this.key = value.value().toString();
                 } else {
                     array.add(value.value());
                 }

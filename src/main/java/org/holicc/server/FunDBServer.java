@@ -19,6 +19,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -94,6 +95,13 @@ public class FunDBServer {
                         onWrite(key);
                     }
                 } catch (Exception e) {
+                    if (key.channel().isOpen()) {
+                        try {
+                            key.channel().close();
+                        } catch (IOException ex) {
+                            Logger.error(ex.getMessage());
+                        }
+                    }
                     key.cancel();
                     Logger.error(e.getMessage());
                 }
@@ -167,8 +175,21 @@ public class FunDBServer {
 
     private void onRead(SelectionKey key) throws IOException, ProtocolParseException {
         SocketChannel channel = (SocketChannel) key.channel();
-        try (InputStream inputStream = channel.socket().getInputStream()) {
-            byte[] bytes = inputStream.readAllBytes();
+        ByteBuffer buffer = ByteBuffer.allocate(64);
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            int size = 0;
+            do {
+                size = channel.read(buffer);
+                if (size > 0) {
+                    byte[] ary = buffer.array();
+                    out.write(ary, 0, size);
+                    buffer.clear();
+                }
+                if (size == -1) {
+                    throw new SocketException("peer close socket");
+                }
+            } while (size != 0);
+            byte[] bytes = out.toByteArray();
             RedisValue redisValue = parser.parse(bytes);
             // put socket as dynamic arg
             arguments.put(SocketChannel.class, channel);
