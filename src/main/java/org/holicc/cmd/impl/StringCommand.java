@@ -16,7 +16,7 @@ public record StringCommand(DataBase db) implements FunDBCommand {
 
 
     @Command(name = "SET", persistence = true, minimumArgs = 2, description = "https://redis.io/commands/set")
-    public String set(@Key String key, @Value String value, @Options String... options) throws CommandException {
+    public String set(String key, String value, String... options) throws CommandException {
         DataPolicy policy = DataPolicy.DEFAULT;
         LocalDateTime ttl = null;
         // parse Options
@@ -48,7 +48,7 @@ public record StringCommand(DataBase db) implements FunDBCommand {
     }
 
     @Command(name = "GET", minimumArgs = 1, description = "https://redis.io/commands/get")
-    public String get(@Key String key) throws CommandException {
+    public String get(String key) throws CommandException {
         if (key == null || key.equals("")) throw new CommandException("empty key");
         DataEntry entry = db.getEntry(key);
         if (entry == null) return null;

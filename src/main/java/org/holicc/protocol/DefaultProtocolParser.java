@@ -75,11 +75,11 @@ public class DefaultProtocolParser implements ProtocolParser {
             for (int i = 0; i < len; i++) {
                 RedisValue value = parse();
                 if (this.command == null) {
-                    this.command = value.value().toString();
+                    value.value().ifPresent(v -> this.command = v.toString());
                 } else if (this.key == null) {
-                    this.key = value.value().toString();
+                    value.value().ifPresent(v -> this.key = v.toString());
                 } else {
-                    array.add(value.value());
+                    array.add(value.value().orElse(null));
                 }
             }
             return array;

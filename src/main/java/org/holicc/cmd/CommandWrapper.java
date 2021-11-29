@@ -17,6 +17,10 @@ public record CommandWrapper(FunDBCommand instance,
                              boolean persistence,
                              Method method) {
 
+    private static final String KEY = "key";
+    private static final String VALUE = "value";
+    public static final String OPTIONS = "options";
+
     public Response execute(RedisValue redisValue, Arguments pool) {
         try {
             if (method == null) return Response.Error("command not found");
@@ -28,12 +32,13 @@ public record CommandWrapper(FunDBCommand instance,
             List<Object> args = new ArrayList<>();
             for (Parameter parameter : parameters) {
                 Class<?> parameterType = parameter.getType();
-                if (parameter.isAnnotationPresent(Key.class)) {
+                String parameterName = parameter.getName();
+                if (parameterName.equalsIgnoreCase(KEY)) {
                     args.add(redisValue.key());
-                } else if (parameter.isAnnotationPresent(Value.class)) {
-                    redisValue.value().ifPresent(args::add);
-                } else if (parameter.isAnnotationPresent(Options.class)) {
-                    redisValue.options().ifPresent(args::add);
+                } else if (parameterName.equalsIgnoreCase(VALUE)) {
+                    args.add(redisValue.value().orElse(null));
+                } else if (parameterName.equalsIgnoreCase(OPTIONS)) {
+                    args.add(redisValue.options().orElse(null));
                 } else {
                     Inject inject = parameter.getAnnotation(Inject.class);
                     // more dynamic args, eg: SocketChannel

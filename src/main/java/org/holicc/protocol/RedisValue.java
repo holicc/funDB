@@ -12,13 +12,22 @@ public record RedisValue(
 ) {
 
     public int size() {
-        int addKey  = Objects.isNull(key)?0:1;
+        int addKey = Objects.isNull(key) ? 0 : 1;
         return value.map(v -> {
             if (v instanceof List) {
                 return ((List<?>) v).size();
             }
             return 0;
-        }).orElse(0)+addKey;
+        }).orElse(0) + addKey;
+    }
+
+    public Optional<Object> value() {
+        return value.map(v -> {
+            if (v instanceof List && ((List<?>) v).size() == 1) {
+                return ((List<?>) v).get(0);
+            }
+            return v;
+        });
     }
 
     public boolean isEmpty() {
