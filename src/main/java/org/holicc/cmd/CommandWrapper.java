@@ -36,9 +36,9 @@ public record CommandWrapper(FunDBCommand instance,
                 if (parameterName.equalsIgnoreCase(KEY)) {
                     args.add(redisValue.key());
                 } else if (parameterName.equalsIgnoreCase(VALUE)) {
-                    args.add(redisValue.value().orElse(null));
+                    args.add(redisValue.value());
                 } else if (parameterName.equalsIgnoreCase(OPTIONS)) {
-                    args.add(redisValue.options().orElse(null));
+                    args.add(redisValue.options());
                 } else {
                     Inject inject = parameter.getAnnotation(Inject.class);
                     // more dynamic args, eg: SocketChannel

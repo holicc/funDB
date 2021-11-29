@@ -37,7 +37,7 @@ public class DefaultProtocolParser implements ProtocolParser {
         // parse options
         String[] options = options();
 
-        return new RedisValue(command, key, Optional.ofNullable(value), Optional.ofNullable(options));
+        return new RedisValue(command, key, value, options);
 
     }
 
@@ -75,11 +75,11 @@ public class DefaultProtocolParser implements ProtocolParser {
             for (int i = 0; i < len; i++) {
                 RedisValue value = parse();
                 if (this.command == null) {
-                    value.value().ifPresent(v -> this.command = v.toString());
+                    this.command = (String) value.value();
                 } else if (this.key == null) {
-                    value.value().ifPresent(v -> this.key = v.toString());
+                    this.key = (String) value.value();
                 } else {
-                    array.add(value.value().orElse(null));
+                    array.add(value.value());
                 }
             }
             return array;

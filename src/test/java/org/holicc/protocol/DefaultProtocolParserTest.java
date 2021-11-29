@@ -24,7 +24,7 @@ class DefaultProtocolParserTest {
     @ValueSource(strings = {":1\r\n", ":10123\r\n", ":0\r\n", ":-1\r\n", ":-11122333\r\n"})
     void testParseInteger(String req) throws ProtocolParseException {
         RedisValue parse = parser.parse(req.getBytes(StandardCharsets.UTF_8));
-        assertEquals(Long.parseLong(req.substring(1, req.length() - 2)),  parse.value());
+        assertEquals(Long.parseLong(req.substring(1, req.length() - 2)), parse.value());
     }
 
     @ParameterizedTest
@@ -51,7 +51,6 @@ class DefaultProtocolParserTest {
         assertEquals("bar", parse.key());
         List<Integer> ary = List.of(1);
         Object o = parse.value();
-        assertInstanceOf(List.class, o);
-        assertTrue(((List<Object>) o).stream().allMatch(i -> ary.contains(1)));
+        assertEquals(1L, o);
     }
 }

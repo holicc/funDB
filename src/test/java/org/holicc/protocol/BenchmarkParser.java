@@ -14,7 +14,7 @@ public class BenchmarkParser {
     }
 
     @Benchmark
-    @BenchmarkMode({Mode.AverageTime, Mode.SampleTime, Mode.Throughput})
+    @BenchmarkMode({ Mode.SampleTime, Mode.Throughput})
     public void benchmarkParse() throws ProtocolParseException {
         ProtocolParser parser = new DefaultProtocolParser();
         RedisValue parse = parser.parse("*3\r\n$3\r\nset\r\n$1\r\na\r\n$1\r\n1\r\n".getBytes(StandardCharsets.UTF_8));
