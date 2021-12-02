@@ -8,13 +8,11 @@ import org.holicc.db.LocalDataBase;
 import org.holicc.protocol.DefaultProtocolParser;
 import org.holicc.protocol.ProtocolParseException;
 import org.holicc.protocol.ProtocolParser;
-import org.holicc.protocol.RedisValue;
 import org.reflections.Reflections;
 import org.tinylog.Logger;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -120,9 +118,12 @@ public class FunDBServer {
         }
     }
 
-    public Response doCommand(RedisValue redisValue, byte[] array) throws ProtocolParseException, IOException {
+    public Response doCommand(LinkedList<Object> redisValue, byte[] array) throws ProtocolParseException, IOException {
         if (redisValue.isEmpty()) throw new ProtocolParseException("none command data");
-        String commandName = redisValue.command().toUpperCase(Locale.ROOT);
+        String commandName = redisValue.pop().toString().toUpperCase(Locale.ROOT);
+        if (!commands.containsKey(commandName)) {
+            commandName = String.join("-", commandName, redisValue.pop().toString().toUpperCase(Locale.ROOT));
+        }
         CommandWrapper command = commands.get(commandName);
         if (command != null) {
             if (command.persistence()) {
@@ -167,8 +168,7 @@ public class FunDBServer {
             byte[] bytes = Files.readAllBytes(path);
             int pos = 0;
             while (pos < bytes.length) {
-                RedisValue parse = parser.parse(bytes);
-                doCommand(parse, bytes);
+                doCommand(parser.parse(bytes), bytes);
             }
         }
     }
@@ -190,7 +190,7 @@ public class FunDBServer {
                 }
             } while (size != 0);
             byte[] bytes = out.toByteArray();
-            RedisValue redisValue = parser.parse(bytes);
+            LinkedList<Object> redisValue = parser.parse(bytes);
             // put socket as dynamic arg
             arguments.put(SocketChannel.class, channel);
             // do command and attach response

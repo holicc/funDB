@@ -1,8 +1,10 @@
 package org.holicc.protocol;
 
 
+import java.util.LinkedList;
+
 public interface ProtocolParser {
 
-    RedisValue parse(byte[] buffer) throws ProtocolParseException;
+    LinkedList<Object> parse(byte[] buffer) throws ProtocolParseException;
 
 }
