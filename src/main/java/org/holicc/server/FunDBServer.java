@@ -121,7 +121,7 @@ public class FunDBServer {
     public Response doCommand(LinkedList<Object> redisValue, byte[] array) throws ProtocolParseException, IOException {
         if (redisValue.isEmpty()) throw new ProtocolParseException("none command data");
         String commandName = redisValue.pop().toString().toUpperCase(Locale.ROOT);
-        if (!commands.containsKey(commandName)) {
+        if (!commands.containsKey(commandName) && !redisValue.isEmpty()) {
             commandName = String.join("-", commandName, redisValue.pop().toString().toUpperCase(Locale.ROOT));
         }
         CommandWrapper command = commands.get(commandName);

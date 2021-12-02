@@ -32,7 +32,7 @@ public record CommandWrapper(FunDBCommand instance,
                         throw new NullPointerException("value is required");
                     args.add(o);
                 } else {
-                    args.add(caseToArg(redisValue, parameterType));
+                    args.add(redisValue.isEmpty() ? null : caseToArg(redisValue, parameterType));
                 }
             }
             Class<?> returnType = method.getReturnType();

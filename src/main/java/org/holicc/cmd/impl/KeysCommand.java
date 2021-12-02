@@ -7,6 +7,7 @@ import org.holicc.db.DataEntry;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Set;
 
 public record KeysCommand(DataBase db) implements FunDBCommand {
@@ -41,4 +42,8 @@ public record KeysCommand(DataBase db) implements FunDBCommand {
         return 1;
     }
 
+    @Command(name = "PING", minimumArgs = 0, description = "https://redis.io/commands/ping")
+    public String ping(String val) {
+        return Objects.isNull(val) ? "PONG" : val;
+    }
 }
