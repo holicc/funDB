@@ -128,7 +128,7 @@ public class ServerConfig {
         this.appendfsync = appendfsync;
     }
 
-    public String getProperty(String name) {
+    public Optional<String> getProperty(String name) {
         if (properties.isEmpty()) {
             ReflectionUtils.getAllFields(ServerConfig.class).forEach(field -> {
                 try {
@@ -141,7 +141,7 @@ public class ServerConfig {
                 }
             });
         }
-        return properties.get(name);
+        return Optional.ofNullable(properties.get(name));
     }
 
     public boolean setProperty(String name, String... args) {

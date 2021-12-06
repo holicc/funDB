@@ -1,9 +1,7 @@
 package org.holicc.protocol;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class DefaultProtocolParser implements ProtocolParser {
 
@@ -11,22 +9,29 @@ public class DefaultProtocolParser implements ProtocolParser {
     private int limit;
     private byte[] buffer;
 
-    private String key;
-    private String command;
-
     @Override
-    public RedisValue parse(byte[] buffer) throws ProtocolParseException {
+    public LinkedList<Object> parse(byte[] buffer) throws ProtocolParseException {
         this.buffer = buffer;
         this.cur = 0;
         this.limit = buffer.length;
-        this.key = null;
-        this.command = null;
-        return parse();
+        try {
+            Object value = parse();
+            if (value instanceof LinkedList linkedList) {
+                return linkedList;
+            }
+            return new LinkedList<>(List.of(value));
+        } catch (ProtocolParseException e) {
+            // try parse command not redis protocol
+            List<String> cmds = parseInline();
+            if (!cmds.isEmpty()) {
+                return new LinkedList<>(cmds);
+            }
+            return new LinkedList<>();
+        }
     }
 
-    private RedisValue parse() throws ProtocolParseException {
-        //
-        Object value = switch (buffer[cur++]) {
+    private Object parse() throws ProtocolParseException {
+        return switch (buffer[cur++]) {
             case '+' -> strValue();
             case ':' -> intValue();
             case '-' -> error();
@@ -34,11 +39,6 @@ public class DefaultProtocolParser implements ProtocolParser {
             case '*' -> arrayValue();
             default -> throw new ProtocolParseException("Unknown protocol");
         };
-        // parse options
-        String[] options = options();
-
-        return new RedisValue(command, key, Optional.ofNullable(value), Optional.ofNullable(options));
-
     }
 
     private String strValue() {
@@ -68,23 +68,25 @@ public class DefaultProtocolParser implements ProtocolParser {
         }).orElse(0L);
     }
 
-    private List<?> arrayValue() throws ProtocolParseException {
+    private LinkedList<?> arrayValue() throws ProtocolParseException {
         long len = intValue();
-        List<Object> array = new ArrayList<>();
+        LinkedList<Object> array = new LinkedList<>();
         if (len > 0) {
             for (int i = 0; i < len; i++) {
-                RedisValue value = parse();
-                if (this.command == null) {
-                    this.command = value.value().toString();
-                } else if (this.key == null) {
-                    this.key = value.value().toString();
-                } else {
-                    array.add(value.value());
-                }
+                array.add(parse());
             }
             return array;
         }
         throw ProtocolParseException.BadArraySize((int) len);
+    }
+
+    private List<String> parseInline() {
+        this.cur = 0;
+        List<String> ary = new ArrayList<>();
+        while (this.cur < limit) {
+            readUntilCRLF().ifPresent(data -> ary.add(new String(data)));
+        }
+        return ary;
     }
 
     private Optional<byte[]> readUntilCRLF() {
@@ -103,10 +105,4 @@ public class DefaultProtocolParser implements ProtocolParser {
         cur = i + 2;
         return Optional.of(bytes);
     }
-
-    private String[] options() {
-        return null;
-    }
-
-
 }

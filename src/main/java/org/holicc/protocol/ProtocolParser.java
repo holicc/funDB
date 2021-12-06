@@ -1,19 +1,16 @@
 package org.holicc.protocol;
 
 
-import java.nio.ByteBuffer;
-import java.util.Optional;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Set;
 
 public interface ProtocolParser {
 
-    char INTEGER_VALUE = ':';
-    char SIMPLE_STRING_VALUE = '+';
-    char BULK_STRING_VALUE = '$';
-    char ERROR_VALUE = '-';
-    char ARRAY_VALUE = '*';
+    Set<String> COMMANDS = Set.of(
+            "PING"
+    );
 
-    RedisValue EMPTY_VALUE = new RedisValue("", "", Optional.empty(), Optional.empty());
-
-    RedisValue parse(byte[] buffer) throws ProtocolParseException;
+    LinkedList<Object> parse(byte[] buffer) throws ProtocolParseException;
 
 }

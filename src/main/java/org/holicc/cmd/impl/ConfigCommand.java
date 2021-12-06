@@ -11,9 +11,11 @@ import java.util.List;
 public record ConfigCommand(ServerConfig config) implements FunDBCommand {
 
 
-    @Command(name = "CONFIG", subCommand = "GET", minimumArgs = 1, description = "https://redis.io/commands/config-get")
+    @Command(name = "CONFIG", subCommand = "GET", description = "https://redis.io/commands/config-get")
     public List<String> configGet(String name) {
-        return List.of(config.getProperty(name).split(" "));
+        return config.getProperty(name)
+                .map(v -> List.of(v.split(" ")))
+                .orElse(List.of());
     }
 
 
