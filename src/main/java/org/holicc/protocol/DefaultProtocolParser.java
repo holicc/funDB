@@ -1,9 +1,7 @@
 package org.holicc.protocol;
 
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 public class DefaultProtocolParser implements ProtocolParser {
 
@@ -11,18 +9,25 @@ public class DefaultProtocolParser implements ProtocolParser {
     private int limit;
     private byte[] buffer;
 
-
     @Override
     public LinkedList<Object> parse(byte[] buffer) throws ProtocolParseException {
         this.buffer = buffer;
         this.cur = 0;
         this.limit = buffer.length;
-
-        Object value = parse();
-        if (value instanceof LinkedList linkedList) {
-            return linkedList;
+        try {
+            Object value = parse();
+            if (value instanceof LinkedList linkedList) {
+                return linkedList;
+            }
+            return new LinkedList<>(List.of(value));
+        } catch (ProtocolParseException e) {
+            // try parse command not redis protocol
+            List<String> cmds = parseInline();
+            if (!cmds.isEmpty()) {
+                return new LinkedList<>(cmds);
+            }
+            return new LinkedList<>();
         }
-        return new LinkedList<>(List.of(value));
     }
 
     private Object parse() throws ProtocolParseException {
@@ -73,6 +78,15 @@ public class DefaultProtocolParser implements ProtocolParser {
             return array;
         }
         throw ProtocolParseException.BadArraySize((int) len);
+    }
+
+    private List<String> parseInline() {
+        this.cur = 0;
+        List<String> ary = new ArrayList<>();
+        while (this.cur < limit) {
+            readUntilCRLF().ifPresent(data -> ary.add(new String(data)));
+        }
+        return ary;
     }
 
     private Optional<byte[]> readUntilCRLF() {
