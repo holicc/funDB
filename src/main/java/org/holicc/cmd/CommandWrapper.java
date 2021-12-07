@@ -8,6 +8,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.*;
+import java.util.function.Function;
 
 public record CommandWrapper(FunDBCommand instance,
                              boolean persistence,
@@ -32,7 +33,7 @@ public record CommandWrapper(FunDBCommand instance,
                         throw new NullPointerException("value is required");
                     args.add(o);
                 } else {
-                    args.add(redisValue.isEmpty() ? null : caseToArg(redisValue, parameterType));
+                    args.add(caseToArg(redisValue, parameter));
                 }
             }
             Class<?> returnType = method.getReturnType();
@@ -42,7 +43,7 @@ public record CommandWrapper(FunDBCommand instance,
                 return null;
             } else if (returnType.isAssignableFrom(String.class)) {
                 return Response.BulkStringReply((String) invoke);
-            } else if (returnType.isAssignableFrom(Collection.class)) {
+            } else if (Collection.class.isAssignableFrom(returnType)) {
                 return Response.ArrayReply((Collection<?>) invoke);
             } else if (returnType.equals(int.class) || returnType.equals(Integer.class)) {
                 return Response.IntReply((int) invoke);
@@ -60,12 +61,16 @@ public record CommandWrapper(FunDBCommand instance,
         }
     }
 
-    private Object caseToArg(LinkedList<Object> redisValue, Class<?> type) {
-        if (type.equals(String.class)) {
-            return redisValue.pop().toString();
-        } else if (type.equals(Integer.class) || type.equals(int.class)) {
-            return Integer.parseInt(redisValue.pop().toString());
-        }
-        return null;
+    private Object caseToArg(LinkedList<Object> redisValue, Parameter type) {
+        return switch (type.getType()) {
+            case Class<?> x && x.equals(String.class) -> getOrDefault(redisValue, Object::toString, "");
+            case Class<?> x && (x.equals(int.class)) -> getOrDefault(redisValue, (o) -> Integer.parseInt(o.toString()), 0);
+            case Class<?> x && x.equals(String[].class) -> redisValue.isEmpty() ? null : redisValue.stream().map(Object::toString).toArray(String[]::new);
+            default -> throw new IllegalStateException("Unexpected value: " + type.getType());
+        };
+    }
+
+    private <T> T getOrDefault(LinkedList<Object> list, Function<Object, T> apply, T t) {
+        return list.isEmpty() ? t : apply.apply(list.pop());
     }
 }

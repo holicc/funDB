@@ -49,10 +49,11 @@ public record ListsCommand(DataBase db) implements FunDBCommand {
     }
 
     @Command(name = "LPOP", persistence = true, description = "https://redis.io/commands/lpop")
-    public List<String> lpop(String key, final int count) {
+    public List<String> lpop(String key, int count) {
         return db.getEntry(key).map(entry -> {
             LinkedList<String> list = entry.getValue();
             if (list.isEmpty()) return null;
+            if (count == 0) return List.of(list.pop());
             if (list.size() <= count) {
                 db.delEntry(key);
                 Collections.reverse(list);

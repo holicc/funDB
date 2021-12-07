@@ -101,7 +101,7 @@ public class FunDBServer {
                         }
                     }
                     key.cancel();
-                    Logger.error(e.getMessage());
+                    e.printStackTrace();
                 }
             }, 1000L);
             // TODO
