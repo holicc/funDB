@@ -9,6 +9,9 @@ import org.holicc.db.DataEntry;
 import java.util.Objects;
 import java.util.TreeSet;
 
+/**
+ * TreeSet instead
+ */
 public record SortedSetCommand(
         DataBase db
 ) implements FunDBCommand {
@@ -16,10 +19,7 @@ public record SortedSetCommand(
     @Command(name = "ZADD", minimumArgs = 3, description = "https://redis.io/commands/zadd")
     public int zadd(String key, SortNode... nodes) {
         int r = 0;
-        DataEntry entry = db.getEntry(key);
-        if (Objects.isNull(entry)) {
-            entry = new DataEntry(key, new TreeSet<>());
-        }
+        DataEntry entry = db.getEntry(key).orElse(new DataEntry(key, new TreeSet<>()));
         TreeSet<SortNode> sortedSet = entry.getValue();
         for (SortNode node : nodes) {
             if (sortedSet.add(node)) r++;

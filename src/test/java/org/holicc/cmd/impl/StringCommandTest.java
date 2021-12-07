@@ -39,10 +39,10 @@ class StringCommandTest {
         //
         Assertions.assertEquals(exceptResponse, response);
         //
-        DataEntry entry = dataBase.getEntry(cmds[1]);
+        DataEntry entry = dataBase.getEntry(cmds[1]).orElse(null);
+        Assertions.assertNotNull(entry);
         equalsEntry(exceptEntry, entry);
     }
-
 
     static Stream<Arguments> set() {
         return Stream.of(
@@ -67,6 +67,20 @@ class StringCommandTest {
     static Stream<Arguments> get() {
         return Stream.of(
                 Arguments.of("get a", new DataEntry("a", "1"))
+        );
+    }
+
+    @MethodSource
+    @ParameterizedTest
+    void incr(String key, long except) throws CommandException {
+        long actual = command.incr(key);
+        Assertions.assertEquals(except, actual);
+    }
+
+    static Stream<Arguments> incr() {
+        return Stream.of(
+                Arguments.of("a", 2),
+                Arguments.of("c", 0)
         );
     }
 

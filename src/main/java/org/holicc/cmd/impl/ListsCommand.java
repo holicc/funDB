@@ -4,64 +4,65 @@ import org.holicc.cmd.FunDBCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
+import org.holicc.util.Pair;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
+/**
+ * LinkedList instead
+ */
 public record ListsCommand(DataBase db) implements FunDBCommand {
 
     @Command(name = "LPUSH", minimumArgs = 2, persistence = true, description = "https://redis.io/commands/lpush")
     public int lpush(String key, String... value) {
-        DataEntry entry = db.getEntry(key);
-        LinkedList<String> list;
-        if (entry != null) {
-            list = entry.getValue();
-        } else {
-            list = new LinkedList<>();
-            entry = new DataEntry(key, list);
-        }
+        DataEntry entry = db.getEntry(key).orElse(new DataEntry(key, new LinkedList<>()));
+        LinkedList<String> list = entry.getValue();
         for (String val : value) {
             list.push(val);
         }
-        //
         db.persistInMemory(entry);
         return list.size();
     }
 
     @Command(name = "LRANGE", minimumArgs = 3, description = "https://redis.io/commands/lrange")
     public List<String> lrange(String key, int start, int end) {
-        DataEntry entry = db.getEntry(key);
-        if (entry == null || start > end) return List.of();
-        LinkedList<String> list = entry.getValue();
-        if (start < 0) start = list.size() + start;
-        if (end < 0) end = list.size() + end - 1;
-        else if (end >= list.size()) end = list.size() - 1;
-        if (start > end) return List.of();
-        if (start == end) return List.of(list.get(start));
-        return list.subList(start, end + 1);
+        Optional<DataEntry> entry = db.getEntry(key);
+        if (entry.isPresent()) {
+            LinkedList<String> list = entry.get().getValue();
+            if (list.isEmpty() || start >= list.size()) return List.of();
+            if (start < 0) start = -start > list.size() ? -start % list.size() : list.size() + start;
+            if (start == end) return List.of(list.get(start));
+            if (start > end) return List.of();
+            if (end >= list.size()) end = list.size();
+            else end += 1;
+            return list.subList(start, end);
+        }
+        return List.of();
     }
 
     @Command(name = "LLEN", description = "https://redis.io/commands/llen")
     public int llen(String key) {
-        DataEntry entry = db.getEntry(key);
-        if (entry == null) return 0;
-        LinkedList<String> list = entry.getValue();
-        return list.size();
+        return db.getEntry(key).map(entry -> {
+            LinkedList<String> list = entry.getValue();
+            return list.size();
+        }).orElse(0);
     }
 
     @Command(name = "LPOP", persistence = true, description = "https://redis.io/commands/lpop")
-    public List<String> lpop(String key, int count) {
-        DataEntry entry = db.getEntry(key);
-        if (entry == null || count <= 0) return List.of();
-        LinkedList<String> list = entry.getValue();
-        if (list == null || list.isEmpty()) return null;
-        List<String> r = new ArrayList<>();
-        while (count-- > 0 && !list.isEmpty()) {
-            r.add(list.pollLast());
-        }
-        // should remove the key if lists is empty
-        if (list.isEmpty()) db.delEntry(key);
-        return r;
+    public List<String> lpop(String key, final int count) {
+        return db.getEntry(key).map(entry -> {
+            LinkedList<String> list = entry.getValue();
+            if (list.isEmpty()) return null;
+            if (list.size() <= count) {
+                db.delEntry(key);
+                Collections.reverse(list);
+                return list;
+            }
+            List<String> r = new ArrayList<>();
+            for (int i = 0; i < count; i++) {
+                r.add(list.pollLast());
+            }
+            return r;
+        }).orElse(List.of());
     }
 }

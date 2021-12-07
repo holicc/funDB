@@ -5,6 +5,7 @@ import org.holicc.util.Wildcard;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -19,16 +20,18 @@ public class LocalDataBase implements DataBase {
     }
 
     @Override
-    public DataEntry getEntry(String key) {
-        if (!entryMap.containsKey(key)) return null;
+    public Optional<DataEntry> getEntry(String key) {
+        if (!entryMap.containsKey(key)) return Optional.empty();
         DataEntry entry = entryMap.get(key);
-        LocalDateTime ttl = entry.getTtl();
+        Optional<LocalDateTime> ttl = entry.getTtl();
         // check expire
-        if (ttl == null || LocalDateTime.now().isBefore(ttl)) {
-            return entry;
+        if (ttl.isEmpty()) {
+            return Optional.of(entry);
+        } else if (LocalDateTime.now().isBefore(ttl.get())) {
+            return Optional.of(entry);
         } else {
             entryMap.remove(key);
-            return null;
+            return Optional.empty();
         }
     }
 

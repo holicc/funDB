@@ -11,6 +11,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
 
 public record StringCommand(DataBase db) implements FunDBCommand {
 
@@ -47,11 +49,30 @@ public record StringCommand(DataBase db) implements FunDBCommand {
         }
     }
 
-    @Command(name = "GET", minimumArgs = 1, description = "https://redis.io/commands/get")
+    @Command(name = "GET", description = "https://redis.io/commands/get")
     public String get(String key) throws CommandException {
-        if (key == null || key.equals("")) throw new CommandException("empty key");
-        DataEntry entry = db.getEntry(key);
-        if (entry == null) return null;
-        return entry.getValue();
+        return db.getEntry(key)
+                .map(dataEntry -> dataEntry.getValue().toString())
+                .orElse(null);
+    }
+
+    @Command(name = "INCR", description = "https://redis.io/commands/incr")
+    public long incr(String key) throws CommandException {
+        Optional<DataEntry> entry = db.getEntry(key);
+        if (entry.isPresent()) {
+            DataEntry dataEntry = entry.get();
+            switch (dataEntry.getValue()) {
+                case String s -> {
+                    long l = Long.parseLong(s);
+                    dataEntry.setValue(l + 1);
+                }
+                case Long l -> {
+                    dataEntry.setValue(l + 1);
+                }
+                default -> throw new CommandException("this value " + dataEntry.getValue() + "can not be represented as integer.");
+            }
+            return dataEntry.getValue();
+        }
+        return 0;
     }
 }

@@ -14,10 +14,11 @@ public record KeysCommand(DataBase db) implements FunDBCommand {
 
     @Command(name = "TTL", minimumArgs = 1, description = "https://redis.io/commands/ttl")
     public long ttl(String key) {
-        DataEntry entry = db.getEntry(key);
-        if (entry == null) return -2;
-        if (entry.getTtl() == null) return -1;
-        return Duration.between(LocalDateTime.now(), entry.getTtl()).toSeconds();
+        return db.getEntry(key)
+                .map(entry -> entry.getTtl()
+                        .map(ttl -> Duration.between(LocalDateTime.now(), ttl).toSeconds())
+                        .orElse(-1L))
+                .orElse(-2L);
     }
 
     @Command(name = "KEYS", minimumArgs = 1, description = "https://redis.io/commands/keys")
@@ -36,10 +37,10 @@ public record KeysCommand(DataBase db) implements FunDBCommand {
 
     @Command(name = "EXPIRE", description = "https://redis.io/commands/expire")
     public int expire(String key, int second, String... options) {
-        DataEntry entry = db.getEntry(key);
-        if (entry == null) return 0;
-        entry.setTtl(LocalDateTime.now().plusSeconds(second));
-        return 1;
+        return db.getEntry(key).map(entry -> {
+            entry.setTtl(LocalDateTime.now().plusSeconds(second));
+            return 1;
+        }).orElse(0);
     }
 
     @Command(name = "PING", minimumArgs = 0, description = "https://redis.io/commands/ping")

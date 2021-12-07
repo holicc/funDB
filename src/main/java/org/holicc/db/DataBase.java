@@ -1,5 +1,6 @@
 package org.holicc.db;
 
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -11,7 +12,7 @@ public interface DataBase {
 
     Set<String> keys(String pattern);
 
-    DataEntry getEntry(String key);
+    Optional<DataEntry> getEntry(String key);
 
     void delEntry(String key);
 }

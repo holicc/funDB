@@ -48,8 +48,10 @@ class ListsCommandTest {
         return Stream.of(
                 Arguments.of("a", 0, 1, List.of("1", "2")),
                 Arguments.of("a", -1, 1, List.of()),
+                Arguments.of("a", -100, 1, List.of("1", "2")),
                 Arguments.of("b", -1, 1, List.of()),
                 Arguments.of("a", 10, 1, List.of()),
+                Arguments.of("a", -2, 2, List.of()),
                 Arguments.of("a", 1, 3, List.of("2", "3", "4")),
                 Arguments.of("a", -4, 3, List.of("2", "3", "4")),
                 Arguments.of("a", 0, 10, List.of("1", "2", "3", "4", "5")),

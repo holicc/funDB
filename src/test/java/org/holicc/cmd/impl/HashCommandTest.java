@@ -35,7 +35,7 @@ class HashCommandTest {
         int r = command.hset(key, field, val);
         Assertions.assertEquals(1, r);
 
-        DataEntry entry = dataBase.getEntry(key);
+        DataEntry entry = dataBase.getEntry(key).orElseThrow();
         Map<String, DataEntry> map = entry.getValue();
 
         Assertions.assertNotNull(map);
