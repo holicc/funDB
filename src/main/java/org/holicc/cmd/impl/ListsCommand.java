@@ -24,6 +24,17 @@ public record ListsCommand(DataBase db) implements FunDBCommand {
         return list.size();
     }
 
+    @Command(name = "RPUSH", minimumArgs = 2, persistence = true, description = "https://redis.io/commands/rpush")
+    public int rpush(String key, String... value) {
+        DataEntry entry = db.getEntry(key).orElse(new DataEntry(key, new LinkedList<>()));
+        LinkedList<String> list = entry.getValue();
+        for (String val : value) {
+            list.offerLast(val);
+        }
+        db.persistInMemory(entry);
+        return list.size();
+    }
+
     @Command(name = "LRANGE", minimumArgs = 3, description = "https://redis.io/commands/lrange")
     public List<String> lrange(String key, int start, int end) {
         Optional<DataEntry> entry = db.getEntry(key);

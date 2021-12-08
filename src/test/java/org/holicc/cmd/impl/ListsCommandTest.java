@@ -75,4 +75,18 @@ class ListsCommandTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource
+    void testRPush(int except, String key, String... value) {
+        int index = command.rpush(key, value);
+        Assertions.assertEquals(except, index);
+    }
+
+    static Stream<Arguments> testRPush() {
+        return Stream.of(
+                Arguments.of(1, "b", new String[]{"1"}),
+                Arguments.of(3, "b", new String[]{"1", "2", "3"})
+        );
+    }
+
 }
