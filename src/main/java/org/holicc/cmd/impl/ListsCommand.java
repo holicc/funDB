@@ -7,6 +7,8 @@ import org.holicc.db.DataEntry;
 import org.holicc.util.Pair;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * LinkedList instead
@@ -61,18 +63,27 @@ public record ListsCommand(DataBase db) implements FunDBCommand {
 
     @Command(name = "LPOP", persistence = true, description = "https://redis.io/commands/lpop")
     public List<String> lpop(String key, int count) {
+        return pop(key, count, true);
+    }
+
+    @Command(name = "RPOP", persistence = true, description = "https://redis.io/commands/rpop")
+    public List<String> rpop(String key, int count) {
+        return pop(key, count, false);
+    }
+
+    private <T> List<T> pop(String key, int count, boolean reverse) {
         return db.getEntry(key).map(entry -> {
-            LinkedList<String> list = entry.getValue();
+            LinkedList<T> list = entry.getValue();
             if (list.isEmpty()) return null;
-            if (count == 0) return List.of(list.pop());
+            if (count == 0) return List.of(reverse ? list.pollLast() : list.pollFirst());
             if (list.size() <= count) {
                 db.delEntry(key);
-                Collections.reverse(list);
+                if (reverse) Collections.reverse(list);
                 return list;
             }
-            List<String> r = new ArrayList<>();
+            List<T> r = new ArrayList<>();
             for (int i = 0; i < count; i++) {
-                r.add(list.pollLast());
+                r.add(reverse ? list.pollLast() : list.pollFirst());
             }
             return r;
         }).orElse(List.of());

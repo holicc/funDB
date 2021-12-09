@@ -69,7 +69,7 @@ class ListsCommandTest {
     static Stream<Arguments> testLpop() {
         return Stream.of(
                 Arguments.of("a", -1, List.of()),
-                Arguments.of("a", 0, List.of()),
+                Arguments.of("a", 0, List.of("5")),
                 Arguments.of("a", 2, List.of("5", "4")),
                 Arguments.of("a", 6, List.of("5", "4", "3", "2", "1"))
         );
@@ -89,4 +89,19 @@ class ListsCommandTest {
         );
     }
 
+    @MethodSource
+    @ParameterizedTest
+    void testRpop(String key, int count, List<String> except) {
+        List<String> list = command.rpop(key, count);
+        Assertions.assertLinesMatch(except, list);
+    }
+
+    static Stream<Arguments> testRpop() {
+        return Stream.of(
+                Arguments.of("a", -1, List.of()),
+                Arguments.of("a", 0, List.of("1")),
+                Arguments.of("a", 2, List.of("1", "2")),
+                Arguments.of("a", 6, List.of("1", "2", "3", "4", "5"))
+        );
+    }
 }
