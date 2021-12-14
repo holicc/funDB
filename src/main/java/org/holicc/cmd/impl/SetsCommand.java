@@ -5,12 +5,11 @@ import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public record SetsCommand(DataBase db) implements FunDBCommand {
+
 
     @Command(name = "SADD", minimumArgs = 2, description = "https://redis.io/commands/sadd")
     public int sadd(String key, String... value) {
@@ -29,5 +28,20 @@ public record SetsCommand(DataBase db) implements FunDBCommand {
             }
             return count;
         }
+    }
+
+    @Command(name = "SPOP", description = "https://redis.io/commands/spop")
+    public List<String> spop(String key, int count) {
+        return db.getEntry(key).map(entry -> {
+            Set<String> set = entry.getValue();
+            Iterator<String> iterator = set.iterator();
+            int i = count == 0 ? 1 : count;
+            List<String> r = new ArrayList<>();
+            while (iterator.hasNext() && i-- > 0) {
+                String next = iterator.next();
+                if (set.remove(next)) r.add(next);
+            }
+            return r;
+        }).orElse(List.of());
     }
 }

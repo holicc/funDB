@@ -121,6 +121,7 @@ public class FunDBServer {
     public Response doCommand(LinkedList<Object> redisValue, byte[] array) throws ProtocolParseException, IOException {
         if (redisValue.isEmpty()) throw new ProtocolParseException("none command data");
         String commandName = redisValue.pop().toString().toUpperCase(Locale.ROOT);
+        Logger.debug("get command {} origin: {}", commandName, new String(array));
         if (!commands.containsKey(commandName) && !redisValue.isEmpty()) {
             commandName = String.join("-", commandName, redisValue.pop().toString().toUpperCase(Locale.ROOT));
         }
@@ -142,7 +143,6 @@ public class FunDBServer {
 
     private DataBase initDatabase() {
         if (config.isClusterEnabled()) {
-            // TODO cluster enable
             Logger.debug("init cluster database");
             return null;
         } else {

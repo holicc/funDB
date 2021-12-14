@@ -66,7 +66,7 @@ public record CommandWrapper(FunDBCommand instance,
             case Class<?> x && x.equals(String.class) -> getOrDefault(redisValue, Object::toString, "");
             case Class<?> x && (x.equals(int.class)) -> getOrDefault(redisValue, (o) -> Integer.parseInt(o.toString()), 0);
             case Class<?> x && x.equals(String[].class) -> redisValue.isEmpty() ? null : redisValue.stream().map(Object::toString).toArray(String[]::new);
-            default -> throw new IllegalStateException("Unexpected value: " + type.getType());
+            default -> redisValue.isEmpty() ? null : redisValue.pop();
         };
     }
 
