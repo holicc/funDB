@@ -1,6 +1,7 @@
 package org.holicc.cmd;
 
 import org.holicc.cmd.annotation.*;
+import org.holicc.datastruct.SortNode;
 import org.holicc.server.Arguments;
 import org.holicc.server.Response;
 
@@ -64,13 +65,28 @@ public record CommandWrapper(FunDBCommand instance,
     private Object caseToArg(LinkedList<Object> redisValue, Parameter type) {
         return switch (type.getType()) {
             case Class<?> x && x.equals(String.class) -> getOrDefault(redisValue, Object::toString, "");
-            case Class<?> x && (x.equals(int.class)) -> getOrDefault(redisValue, (o) -> Integer.parseInt(o.toString()), 0);
             case Class<?> x && x.equals(String[].class) -> redisValue.isEmpty() ? null : redisValue.stream().map(Object::toString).toArray(String[]::new);
+            case Class<?> x && (x.equals(int.class)) -> getOrDefault(redisValue, (o) -> Integer.parseInt(o.toString()), 0);
+            case Class<?> x && (x.equals(SortNode[].class)) -> caseToSortNode(redisValue);
             default -> redisValue.isEmpty() ? null : redisValue.pop();
         };
     }
 
     private <T> T getOrDefault(LinkedList<Object> list, Function<Object, T> apply, T t) {
         return list.isEmpty() ? t : apply.apply(list.pop());
+    }
+
+    private SortNode[] caseToSortNode(LinkedList<Object> link) {
+        if (link.size() % 2 == 0) {
+            int len = link.size() / 2;
+            SortNode[] sortNodes = new SortNode[len];
+            for (int i = 0; i < sortNodes.length; i++) {
+                float score = Float.parseFloat(link.pop().toString());
+                String value = link.pop().toString();
+                sortNodes[i] = new SortNode(value, score);
+            }
+            return sortNodes;
+        }
+        return null;
     }
 }
