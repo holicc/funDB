@@ -1,5 +1,8 @@
 package org.holicc.server;
 
+import org.holicc.datastruct.SortNode;
+import org.reflections.ReflectionUtils;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Objects;
@@ -27,14 +30,20 @@ public record Response(String msg) {
 
     public static Response ArrayReply(Collection<?> collection) {
         if (collection.isEmpty()) return EmptyArrayReply();
-        StringBuilder builder = new StringBuilder("*" + collection.size() + CRLF);
+        StringBuilder builder = new StringBuilder();
+        int size = collection.size();
         for (Object item : collection) {
-            if (item instanceof String) {
-                builder.append(encodeStr((String) item));
-            } else if (item instanceof Integer) {
+            if (item instanceof Integer) {
                 builder.append(encodeInt((int) item));
+            } else if (item instanceof SortNode node) {
+                builder.append(encodeStr(node.value()));
+                builder.append(encodeStr(node.score() + ""));
+                size += 1;
+            } else {
+                builder.append(encodeStr(item.toString()));
             }
         }
+        builder.insert(0, "*" + size + CRLF);
         return new Response(builder.toString());
     }
 
