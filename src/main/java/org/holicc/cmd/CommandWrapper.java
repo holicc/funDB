@@ -4,22 +4,20 @@ import org.holicc.cmd.annotation.*;
 import org.holicc.datastruct.SortNode;
 import org.holicc.server.Arguments;
 import org.holicc.server.Response;
+import org.holicc.util.Pair;
 
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
-public record CommandWrapper(FunDBCommand instance,
-                             boolean persistence,
-                             Method method) {
+public record CommandWrapper(FunDBCommand instance, boolean persistence, Method method) {
 
     public Response execute(LinkedList<Object> redisValue, Arguments pool) {
         try {
             if (method == null) return Response.Error("command not found");
             Command annotation = method.getAnnotation(Command.class);
-            if (annotation.minimumArgs() > redisValue.size()) {
-                return Response.Error("wrong number args of [" + annotation.name() + "], see " + annotation.description());
-            }
+
             Parameter[] parameters = method.getParameters();
             List<Object> args = new ArrayList<>();
             for (Parameter parameter : parameters) {
@@ -28,12 +26,15 @@ public record CommandWrapper(FunDBCommand instance,
                 // more dynamic args, eg: SocketChannel
                 if (Objects.nonNull(inject)) {
                     Object o = pool.get(parameterType);
-                    if (inject.required() && Objects.isNull(o))
-                        throw new NullPointerException("value is required");
+                    if (inject.required() && Objects.isNull(o)) throw new NullPointerException("value is required");
                     args.add(o);
                 } else {
                     args.add(caseToArg(redisValue, parameter));
                 }
+            }
+            // arg size check
+            if (parameters.length != args.size()) {
+                return Response.Error("wrong number args of [" + annotation.name() + "], see " + annotation.description());
             }
             Class<?> returnType = method.getReturnType();
             Object invoke = method.invoke(instance, args.toArray());
@@ -51,11 +52,9 @@ public record CommandWrapper(FunDBCommand instance,
             } else {
                 return Response.NullBulkResponse();
             }
-        } catch (
-                InvocationTargetException e) {
+        } catch (InvocationTargetException e) {
             return Response.Error(e.getTargetException().getMessage());
-        } catch (
-                IllegalAccessException e) {
+        } catch (IllegalAccessException e) {
             return Response.Error(e.getMessage());
         }
     }
@@ -63,9 +62,10 @@ public record CommandWrapper(FunDBCommand instance,
     private Object caseToArg(LinkedList<Object> redisValue, Parameter type) {
         return switch (type.getType()) {
             case Class<?> x && x.equals(String.class) -> getOrDefault(redisValue, Object::toString, "");
-            case Class<?> x && x.equals(String[].class) -> redisValue.isEmpty() ? null : redisValue.stream().map(Object::toString).toArray(String[]::new);
             case Class<?> x && (x.equals(int.class)) -> getOrDefault(redisValue, (o) -> Integer.parseInt(o.toString()), 0);
-            case Class<?> x && (x.equals(SortNode[].class)) -> caseToSortNode(redisValue);
+            case Class<?> x && x.equals(String[].class) -> redisValue.isEmpty() ? null : redisValue.stream().map(Object::toString).toArray(String[]::new);
+            case Class<?> x && (x.equals(SortNode[].class)) -> caseToSortNodes(redisValue);
+            case Class<?> x && (x.equals(Pair[].class)) -> caseToPairs(redisValue);
             default -> redisValue.isEmpty() ? null : redisValue.pop();
         };
     }
@@ -74,7 +74,7 @@ public record CommandWrapper(FunDBCommand instance,
         return list.isEmpty() ? t : apply.apply(list.pop());
     }
 
-    private SortNode[] caseToSortNode(LinkedList<Object> link) {
+    private SortNode[] caseToSortNodes(LinkedList<Object> link) {
         if (link.size() % 2 == 0) {
             int len = link.size() / 2;
             SortNode[] sortNodes = new SortNode[len];
@@ -84,6 +84,18 @@ public record CommandWrapper(FunDBCommand instance,
                 sortNodes[i] = new SortNode(value, score);
             }
             return sortNodes;
+        }
+        return null;
+    }
+
+    private Pair<String, String>[] caseToPairs(LinkedList<Object> link) {
+        if (link.size() % 2 == 0) {
+            int len = link.size() / 2;
+            Pair<String, String>[] pairs = new Pair[len];
+            for (int i = 0; i < len; i++) {
+                pairs[i] = Pair.of(link.pop().toString(), link.pop().toString());
+            }
+            return pairs;
         }
         return null;
     }

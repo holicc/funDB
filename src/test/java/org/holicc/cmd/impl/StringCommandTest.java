@@ -5,6 +5,7 @@ import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 import org.holicc.db.DataPolicy;
 import org.holicc.db.LocalDataBase;
+import org.holicc.util.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -84,5 +85,19 @@ class StringCommandTest {
         );
     }
 
+    @MethodSource
+    @ParameterizedTest
+    void mset(String except, Pair<String, String>[] pairs) {
+        String actual = command.mset(pairs);
+        Assertions.assertEquals(except, actual);
+    }
+
+    static Stream<Arguments> mset() {
+        return Stream.of(
+                Arguments.of("OK", new Pair[]{Pair.of("a", "2")}),
+                Arguments.of("OK", new Pair[]{Pair.of("key1", "value1")}),
+                Arguments.of("OK", new Pair[]{Pair.of("key1", "value1"), Pair.of("key2", "value2")})
+        );
+    }
 
 }

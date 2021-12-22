@@ -6,12 +6,12 @@ import org.holicc.cmd.exception.CommandException;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 import org.holicc.db.DataPolicy;
+import org.holicc.util.Pair;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 
 public record StringCommand(DataBase db) implements FunDBCommand {
@@ -35,11 +35,11 @@ public record StringCommand(DataBase db) implements FunDBCommand {
         }
         // to db
         DataEntry entry = new DataEntry(key, value, ttl, policy);
-        if (policy == DataPolicy.PUT_IF_EXISTS && db.getEntry(entry.getKey()) != null) {
+        if (policy == DataPolicy.PUT_IF_EXISTS && db.getEntry(key).isPresent()) {
             DataEntry oldEntry = db.persistInMemory(entry);
             return oldEntry.getValue();
         } else if (policy == DataPolicy.PUT_IF_ABSENT) {
-            if (db.getEntry(entry.getKey()) == null) {
+            if (db.getEntry(key).isEmpty()) {
                 db.persistInMemory(entry);
             }
             return "OK";
@@ -66,13 +66,22 @@ public record StringCommand(DataBase db) implements FunDBCommand {
                     long l = Long.parseLong(s);
                     dataEntry.setValue(l + 1);
                 }
-                case Long l -> {
-                    dataEntry.setValue(l + 1);
-                }
+                case Long l -> dataEntry.setValue(l + 1);
                 default -> throw new CommandException("this value " + dataEntry.getValue() + "can not be represented as integer.");
             }
             return dataEntry.getValue();
         }
         return 0;
+    }
+
+    @Command(name = "MSET", description = "https://redis.io/commands/mset")
+    public String mset(Pair<String, String>[] pairs) {
+        for (Pair<String, String> pair : pairs) {
+            db.getEntry(pair.key()).ifPresentOrElse(entry -> entry.setValue(pair.val()), () -> {
+                db.persistInMemory(new DataEntry(pair.key(), pair.val()));
+            });
+        }
+
+        return "OK";
     }
 }
