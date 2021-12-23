@@ -1,5 +1,7 @@
 package org.holicc.datastruct;
 
+import java.util.Objects;
+
 /**
  * to implement sortedSet
  * <p>
@@ -10,8 +12,17 @@ public record SortNode(
         float score
 ) implements Comparable<SortNode> {
 
-    @Override
+    public static SortNode of(String value, float score) {
+        return new SortNode(value, score);
+    }
+
     public int compareTo(SortNode o) {
-        return Float.compare(o.score(), score());
+        return Integer.compare(o.hashCode(), hashCode());
+    }
+
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value, score);
     }
 }

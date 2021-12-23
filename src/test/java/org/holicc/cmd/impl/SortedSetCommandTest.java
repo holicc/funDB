@@ -39,7 +39,7 @@ class SortedSetCommandTest {
 
     static Stream<Arguments> zadd() {
         return Stream.of(
-                Arguments.of("myzset", new SortNode[]{new SortNode("one", 1)}, 1),
+                Arguments.of("myzset", new SortNode[]{SortNode.of("one", 1)}, 1),
                 Arguments.of("myzset", new SortNode[]{new SortNode("one", 1), new SortNode("one", 1)}, 1),
                 Arguments.of("myzset", new SortNode[]{new SortNode("one", 1), new SortNode("two", 2), new SortNode("three", 3)}, 3)
         );
@@ -47,12 +47,12 @@ class SortedSetCommandTest {
 
     @MethodSource
     @ParameterizedTest
-    void testZpopmin(String key, int count, List<SortNode> except) {
+    void zpopmin(String key, int count, List<SortNode> except) {
         List<SortNode> actual = command.zpopmin(key, count);
         Assertions.assertEquals(except, actual);
     }
 
-    static Stream<Arguments> testZpopmin() {
+    static Stream<Arguments> zpopmin() {
         return Stream.of(
                 Arguments.of("mylist", 1, List.of()),
                 Arguments.of("myzset", 1, List.of(new SortNode("x", 1))),

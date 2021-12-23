@@ -13,12 +13,10 @@ import java.util.stream.Collectors;
 /**
  * TreeSet instead
  */
-public record SortedSetCommand(
-        DataBase db
-) implements FunDBCommand {
+public record SortedSetCommand(DataBase db) implements FunDBCommand {
 
     @Command(name = "ZADD", minimumArgs = 3, description = "https://redis.io/commands/zadd")
-    public int zadd(String key, SortNode... nodes) {
+    public int zadd(String key, SortNode[] nodes) {
         int r = 0;
         DataEntry entry = db.getEntry(key).orElseGet(() -> {
             DataEntry e = new DataEntry(key, new TreeSet<>());
@@ -32,7 +30,7 @@ public record SortedSetCommand(
         return r;
     }
 
-    @Command(name = "ZPOPMIN",  description = "https://redis.io/commands/zpopmin")
+    @Command(name = "ZPOPMIN", description = "https://redis.io/commands/zpopmin")
     public List<SortNode> zpopmin(String key, int count) {
         Optional<DataEntry> entry = db.getEntry(key);
         if (entry.isPresent()) {
@@ -47,5 +45,4 @@ public record SortedSetCommand(
         }
         return List.of();
     }
-
 }
