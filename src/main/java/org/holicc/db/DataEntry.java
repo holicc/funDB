@@ -1,7 +1,11 @@
 package org.holicc.db;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Supplier;
 
+// TODO: make as record
 public class DataEntry {
 
     private String key;
@@ -38,8 +42,8 @@ public class DataEntry {
         this.key = key;
     }
 
-    public LocalDateTime getTtl() {
-        return ttl;
+    public Optional<LocalDateTime> getTtl() {
+        return Optional.ofNullable(ttl);
     }
 
     public void setTtl(LocalDateTime ttl) {
@@ -50,8 +54,8 @@ public class DataEntry {
         this.value = value;
     }
 
-    public <T> T getValue(){
-        return (T)value;
+    public <T> T getValue() {
+        return (T) value;
     }
 
     public DataPolicy getPolicy() {

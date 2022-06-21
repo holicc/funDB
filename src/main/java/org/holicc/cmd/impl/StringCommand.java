@@ -1,21 +1,24 @@
 package org.holicc.cmd.impl;
 
-import org.holicc.cmd.JedisCommand;
-import org.holicc.cmd.annotation.Command;
+import org.holicc.cmd.FunDBCommand;
+import org.holicc.cmd.annotation.*;
 import org.holicc.cmd.exception.CommandException;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 import org.holicc.db.DataPolicy;
+import org.holicc.util.Pair;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Locale;
+import java.util.Optional;
 
-public class StringCommand implements JedisCommand {
+public record StringCommand(DataBase db) implements FunDBCommand {
 
-    @Command(name = "SET", minimumArgs = 2, description = "https://redis.io/commands/set")
-    public String set(DataBase db, String key, String value, String... options) throws CommandException {
+
+    @Command(name = "SET", persistence = true, minimumArgs = 2, description = "https://redis.io/commands/set")
+    public String set(String key, String value, String... options) throws CommandException {
         DataPolicy policy = DataPolicy.DEFAULT;
         LocalDateTime ttl = null;
         // parse Options
@@ -32,11 +35,11 @@ public class StringCommand implements JedisCommand {
         }
         // to db
         DataEntry entry = new DataEntry(key, value, ttl, policy);
-        if (policy == DataPolicy.PUT_IF_EXISTS && db.getEntry(entry.getKey()) != null) {
+        if (policy == DataPolicy.PUT_IF_EXISTS && db.getEntry(key).isPresent()) {
             DataEntry oldEntry = db.persistInMemory(entry);
             return oldEntry.getValue();
         } else if (policy == DataPolicy.PUT_IF_ABSENT) {
-            if (db.getEntry(entry.getKey()) == null) {
+            if (db.getEntry(key).isEmpty()) {
                 db.persistInMemory(entry);
             }
             return "OK";
@@ -46,11 +49,39 @@ public class StringCommand implements JedisCommand {
         }
     }
 
-    @Command(name = "GET", minimumArgs = 1, description = "https://redis.io/commands/get")
-    public String get(DataBase db, String key) throws CommandException {
-        if (key == null || key.equals("")) throw new CommandException("empty key");
-        DataEntry entry = db.getEntry(key);
-        if (entry == null) return null;
-        return entry.getValue();
+    @Command(name = "GET", description = "https://redis.io/commands/get")
+    public String get(String key) throws CommandException {
+        return db.getEntry(key)
+                .map(dataEntry -> dataEntry.getValue().toString())
+                .orElse(null);
+    }
+
+    @Command(name = "INCR", description = "https://redis.io/commands/incr")
+    public long incr(String key) throws CommandException {
+        Optional<DataEntry> entry = db.getEntry(key);
+        if (entry.isPresent()) {
+            DataEntry dataEntry = entry.get();
+            switch (dataEntry.getValue()) {
+                case String s -> {
+                    long l = Long.parseLong(s);
+                    dataEntry.setValue(l + 1);
+                }
+                case Long l -> dataEntry.setValue(l + 1);
+                default -> throw new CommandException("this value " + dataEntry.getValue() + "can not be represented as integer.");
+            }
+            return dataEntry.getValue();
+        }
+        return 0;
+    }
+
+    @Command(name = "MSET", description = "https://redis.io/commands/mset")
+    public String mset(Pair<String, String>[] pairs) {
+        for (Pair<String, String> pair : pairs) {
+            db.getEntry(pair.key()).ifPresentOrElse(entry -> entry.setValue(pair.val()), () -> {
+                db.persistInMemory(new DataEntry(pair.key(), pair.val()));
+            });
+        }
+
+        return "OK";
     }
 }

@@ -1,6 +1,6 @@
 package org.holicc.cmd.impl;
 
-import org.holicc.cmd.JedisCommand;
+import org.holicc.cmd.FunDBCommand;
 import org.holicc.cmd.annotation.Command;
 import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
@@ -8,35 +8,32 @@ import org.holicc.db.DataEntry;
 import java.util.HashMap;
 import java.util.Map;
 
-public class HashCommand implements JedisCommand {
+public record HashCommand(DataBase db) implements FunDBCommand {
 
-    @Command(name = "HSET", minimumArgs = 3, description = "https://redis.io/commands/hset")
-    public int hset(DataBase db, String key, String field, Object value) {
-        DataEntry entry = db.getEntry(key);
+    @Command(name = "HSET", persistence = true, minimumArgs = 3, description = "https://redis.io/commands/hset")
+    public int hset(String key, String field, Object value) {
         DataEntry fieldsEntry = new DataEntry(field, value);
-        if (entry == null) {
-            Map<String, DataEntry> map = new HashMap<>();
-            map.put(field, fieldsEntry);
-            entry = new DataEntry(key, map);
-            db.persistInMemory(entry);
-        } else {
-            Map<String, DataEntry> map = entry.getValue();
-            if (map == null) {
-                map = new HashMap<>();
-            }
-            map.put(field, fieldsEntry);
-            entry.setValue(map);
-        }
+        db.getEntry(key).ifPresentOrElse(
+                entry -> {
+                    Map<String, DataEntry> map = entry.getValue();
+                    map.put(field, fieldsEntry);
+                },
+                () -> {
+                    Map<String, DataEntry> map = new HashMap<>();
+                    DataEntry entry = new DataEntry(key, map);
+                    map.put(field, fieldsEntry);
+                    db.persistInMemory(entry);
+                });
         return 1;
     }
 
 
     @Command(name = "HGET", minimumArgs = 2, description = "https://redis.io/commands/hget")
-    public String hget(DataBase db, String key, String field) {
-        DataEntry entry = db.getEntry(key);
-        if (entry == null) return null;
-        Map<String, DataEntry> map = entry.getValue();
-        if (map.containsKey(field)) return map.get(field).getValue();
-        else return null;
+    public String hget(String key, String field) {
+        return db.getEntry(key).map(entry -> {
+            Map<String, DataEntry> map = entry.getValue();
+            if (map.containsKey(field)) return (String) map.get(field).getValue();
+            else return null;
+        }).orElse(null);
     }
 }

@@ -5,17 +5,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target({ElementType.METHOD})
+@Target({ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Command {
+public @interface Inject {
 
-    String name();
-
-    String subCommand() default "";
-
-    String description() default "";
-
-    boolean persistence() default false;
-
-    int minimumArgs() default 1;
+    boolean required() default true;
 }

@@ -17,8 +17,8 @@ import static org.holicc.cmd.impl.TestUtils.equalsEntry;
 
 class HashCommandTest {
 
-    HashCommand command = new HashCommand();
     DataBase dataBase = new LocalDataBase();
+    HashCommand command = new HashCommand(dataBase);
 
     @BeforeEach
     void prepareData() {
@@ -31,11 +31,11 @@ class HashCommandTest {
 
     @ParameterizedTest
     @MethodSource
-    void hset(String key, String field, String val, DataEntry except) {
-        int r = command.hset(dataBase, key, field, val);
+    void hset(String key, String field, Object val, DataEntry except) {
+        int r = command.hset(key, field, val);
         Assertions.assertEquals(1, r);
 
-        DataEntry entry = dataBase.getEntry(key);
+        DataEntry entry = dataBase.getEntry(key).orElseThrow();
         Map<String, DataEntry> map = entry.getValue();
 
         Assertions.assertNotNull(map);
@@ -53,7 +53,7 @@ class HashCommandTest {
     @ParameterizedTest
     @MethodSource
     void hget(String key, String field, String except) {
-        String r = command.hget(dataBase, key, field);
+        String r = command.hget(key, field);
         Assertions.assertEquals(except, r);
     }
 

@@ -1,7 +1,6 @@
 package org.holicc.db;
 
-import javax.xml.crypto.Data;
-import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -13,5 +12,7 @@ public interface DataBase {
 
     Set<String> keys(String pattern);
 
-    DataEntry getEntry(String key);
+    Optional<DataEntry> getEntry(String key);
+
+    void delEntry(String key);
 }

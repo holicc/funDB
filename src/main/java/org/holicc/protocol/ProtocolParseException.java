@@ -1,4 +1,4 @@
-package org.holicc.parser;
+package org.holicc.protocol;
 
 public class ProtocolParseException extends Exception {
 
@@ -21,5 +21,9 @@ public class ProtocolParseException extends Exception {
 
     public static ProtocolParseException NotEnoughDataLength(int actual, int except) {
         return new ProtocolParseException(String.format("not enough data length,except %d actual %d", except, actual));
+    }
+
+    public static ProtocolParseException unknownType(){
+        return new ProtocolParseException("unknown type");
     }
 }

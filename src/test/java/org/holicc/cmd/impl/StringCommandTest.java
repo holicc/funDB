@@ -5,6 +5,7 @@ import org.holicc.db.DataBase;
 import org.holicc.db.DataEntry;
 import org.holicc.db.DataPolicy;
 import org.holicc.db.LocalDataBase;
+import org.holicc.util.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -19,8 +20,8 @@ import static org.holicc.cmd.impl.TestUtils.equalsEntry;
 
 class StringCommandTest {
 
-    StringCommand command = new StringCommand();
     DataBase dataBase = new LocalDataBase();
+    StringCommand command = new StringCommand(dataBase);
 
     @BeforeEach
     void prepareData() {
@@ -35,14 +36,14 @@ class StringCommandTest {
         if (cmds.length > 3) {
             options = Arrays.copyOfRange(cmds, 3, cmds.length);
         }
-        String response = command.set(dataBase, cmds[1], cmds[2], options);
+        String response = command.set(cmds[1], cmds[2], options);
         //
         Assertions.assertEquals(exceptResponse, response);
         //
-        DataEntry entry = dataBase.getEntry(cmds[1]);
+        DataEntry entry = dataBase.getEntry(cmds[1]).orElse(null);
+        Assertions.assertNotNull(entry);
         equalsEntry(exceptEntry, entry);
     }
-
 
     static Stream<Arguments> set() {
         return Stream.of(
@@ -59,7 +60,7 @@ class StringCommandTest {
     void get(String cmd, DataEntry except) throws CommandException {
         String[] cmds = cmd.split(" ");
         dataBase.persistInMemory(except);
-        String response = command.get(dataBase, cmds[1]);
+        String response = command.get(cmds[1]);
         String exceptStr = except.getValue();
         Assertions.assertEquals(exceptStr, response);
     }
@@ -70,5 +71,33 @@ class StringCommandTest {
         );
     }
 
+    @MethodSource
+    @ParameterizedTest
+    void incr(String key, long except) throws CommandException {
+        long actual = command.incr(key);
+        Assertions.assertEquals(except, actual);
+    }
+
+    static Stream<Arguments> incr() {
+        return Stream.of(
+                Arguments.of("a", 2),
+                Arguments.of("c", 0)
+        );
+    }
+
+    @MethodSource
+    @ParameterizedTest
+    void mset(String except, Pair<String, String>[] pairs) {
+        String actual = command.mset(pairs);
+        Assertions.assertEquals(except, actual);
+    }
+
+    static Stream<Arguments> mset() {
+        return Stream.of(
+                Arguments.of("OK", new Pair[]{Pair.of("a", "2")}),
+                Arguments.of("OK", new Pair[]{Pair.of("key1", "value1")}),
+                Arguments.of("OK", new Pair[]{Pair.of("key1", "value1"), Pair.of("key2", "value2")})
+        );
+    }
 
 }
