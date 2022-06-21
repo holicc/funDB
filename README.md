@@ -4,15 +4,6 @@
 
 inspire by toydb.
 
-## Features
-
-- [ ] GraphQL
-- [ ] SQL Support
-- [ ] Fully Redis command
-- [ ] RESFul Support
-- [ ] Plugins System
-
-## Benchmark
 
 
 
